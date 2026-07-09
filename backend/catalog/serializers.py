@@ -107,24 +107,32 @@ class ProductSerializer(serializers.ModelSerializer):
 
 
 class CategoryWriteSerializer(serializers.ModelSerializer):
+    slug = serializers.SlugField(required=False, allow_blank=True)
+
     class Meta:
         model = Category
         fields = ["id", "name", "slug"]
 
 
 class CollectionWriteSerializer(serializers.ModelSerializer):
+    slug = serializers.SlugField(required=False, allow_blank=True)
+
     class Meta:
         model = Collection
         fields = ["id", "name", "slug"]
 
 
 class ColorWriteSerializer(serializers.ModelSerializer):
+    slug = serializers.SlugField(required=False, allow_blank=True)
+
     class Meta:
         model = Color
         fields = ["id", "name", "slug", "image"]
 
 
 class SizeWriteSerializer(serializers.ModelSerializer):
+    slug = serializers.SlugField(required=False, allow_blank=True)
+
     class Meta:
         model = Size
         fields = ["id", "name", "slug"]
@@ -152,6 +160,8 @@ class ProductVariantWriteSerializer(serializers.ModelSerializer):
 
 
 class ProductWriteSerializer(serializers.ModelSerializer):
+    slug = serializers.SlugField(required=False, allow_blank=True)
+
     class Meta:
         model = Product
         fields = [

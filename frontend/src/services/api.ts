@@ -273,7 +273,8 @@ export const catalogService = {
       }
       const response = await axiosClient.get('/catalog/products/', { params });
       // DRF might return paginated results: { count, results } or just flat array
-      return Array.isArray(response.data) ? response.data : response.data.results || [];
+      const rawProducts = Array.isArray(response.data) ? response.data : response.data.results || [];
+      return rawProducts.map(mapProductListItem);
     } else {
       // High-fidelity filter simulation
       let items = mockDB.getProducts();
@@ -320,7 +321,7 @@ export const catalogService = {
   getProductBySlug: async (slug: string): Promise<Product> => {
     if (USE_REAL_BACKEND) {
       const response = await axiosClient.get(`/catalog/products/${slug}/`);
-      return response.data;
+      return mapProductDetail(response.data);
     } else {
       const prods = mockDB.getProducts();
       const item = prods.find(p => p.slug === slug);
@@ -332,7 +333,7 @@ export const catalogService = {
   getCategories: async (): Promise<string[]> => {
     if (USE_REAL_BACKEND) {
       const response = await axiosClient.get('/catalog/categories/');
-      return response.data;
+      return response.data.map((c: any) => c.name);
     } else {
       return ['shirts', 't-shirts'];
     }
@@ -341,7 +342,7 @@ export const catalogService = {
   getCollections: async (): Promise<string[]> => {
     if (USE_REAL_BACKEND) {
       const response = await axiosClient.get('/catalog/collections/');
-      return response.data;
+      return response.data.map((c: any) => c.name);
     } else {
       return ['Essential Drop', 'Classic Minimalist', 'Urban Essentials', 'Summer Drop'];
     }
@@ -352,7 +353,18 @@ export const cartService = {
   getCart: async (): Promise<CartItem[]> => {
     if (USE_REAL_BACKEND) {
       const response = await axiosClient.get('/orders/cart/');
-      return response.data.items || [];
+      const items = response.data.items || [];
+      
+      const mappedItems = await Promise.all(items.map(async (item: any) => {
+        try {
+          const product = await catalogService.getProductBySlug(item.product_slug);
+          return mapCartItem(item, product);
+        } catch (e) {
+          console.warn('Failed to load product for cart item', item);
+          return null;
+        }
+      }));
+      return mappedItems.filter(Boolean) as CartItem[];
     }
     return mockDB.getCart();
   },
@@ -484,7 +496,7 @@ export const checkoutService = {
       const response = await axiosClient.post('/orders/checkout/', orderData);
       // Side effect: clear local/session cart
       cartService.clearCart();
-      return response.data;
+      return mapOrder(response.data);
     } else {
       const cart = mockDB.getCart();
       if (cart.length === 0) throw new Error('Cart is empty');
@@ -529,7 +541,7 @@ export const checkoutService = {
   getOrders: async (): Promise<Order[]> => {
     if (USE_REAL_BACKEND) {
       const response = await axiosClient.get('/orders/me/orders/');
-      return response.data;
+      return Array.isArray(response.data) ? response.data.map(mapOrder) : [];
     } else {
       return mockDB.getOrders();
     }
@@ -548,7 +560,8 @@ export const reviewsService = {
 
       const response = await axiosClient.get('/reviews/', { params });
       const data = response.data;
-      return Array.isArray(data?.items) ? data.items : [];
+      const reviews = Array.isArray(data?.items) ? data.items : [];
+      return reviews.map(mapReview);
     }
 
     // Local mock mode
@@ -577,7 +590,7 @@ export const reviewsService = {
   }): Promise<Review> => {
     if (USE_REAL_BACKEND) {
       const response = await axiosClient.post('/reviews/', reviewData);
-      return response.data;
+      return mapReview(response.data);
     }
 
     const prods = mockDB.getProducts();

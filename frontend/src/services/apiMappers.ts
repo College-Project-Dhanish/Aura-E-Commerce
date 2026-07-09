@@ -134,7 +134,7 @@ const buildSpecifications = (product: Record<string, any>) => ({
   Stock: String(toNumber(product.stock)),
   Published: product.published === false ? 'No' : 'Yes',
   Featured: product.featured ? 'Yes' : 'No',
-  Best Seller: product.best_seller ? 'Yes' : 'No',
+  'Best Seller': product.best_seller ? 'Yes' : 'No',
 });
 
 const resolveProductPrice = (product: Record<string, any>) => {
