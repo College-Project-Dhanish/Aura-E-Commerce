@@ -18,7 +18,7 @@ export default function CartPage() {
       setCart(data);
     } catch (err) {
       if (err.response?.status === 404) {
-        setCart({ items: [], total_price: '0.00' });
+        setCart({ items: [] });
       } else {
         setError('Failed to load cart.');
       }
@@ -54,6 +54,14 @@ export default function CartPage() {
 
   const isEmpty = !cart || !cart.items || cart.items.length === 0;
 
+  const calculateTotal = () => {
+    let sum = 0;
+    cart?.items?.forEach(item => {
+      sum += parseFloat(item.line_total || 0);
+    });
+    return sum.toFixed(2);
+  };
+
   return (
     <div className="container" style={{ padding: '2rem 16px' }}>
       <h1 style={{ marginBottom: '2rem' }}>Shopping Cart</h1>
@@ -72,18 +80,12 @@ export default function CartPage() {
           <div>
             {cart.items.map(item => (
               <Card key={item.id} style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-                <div style={{ width: '100px', height: '100px', backgroundColor: 'var(--bg-color)', borderRadius: 'var(--radius-md)' }}>
-                  {item.product_details?.images?.[0] && (
-                    <img 
-                      src={item.product_details.images[0].image} 
-                      alt={item.product_details.name}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 'inherit' }}
-                    />
-                  )}
-                </div>
                 <div style={{ flex: 1 }}>
-                  <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.125rem' }}>{item.product_details?.name || 'Product'}</h3>
-                  <p style={{ margin: 0, fontWeight: 600 }}>${item.product_details?.price}</p>
+                  <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.125rem' }}>{item.product_name || 'Product'}</h3>
+                  <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--text-muted)' }}>
+                    Variant: {item.sku} | Color: {item.color} | Size: {item.size}
+                  </p>
+                  <p style={{ margin: '0.5rem 0 0 0', fontWeight: 600 }}>${item.unit_price}</p>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'space-between' }}>
                   <Button variant="secondary" size="sm" onClick={() => handleRemoveItem(item.id)}>Remove</Button>
@@ -102,12 +104,12 @@ export default function CartPage() {
               <h2 style={{ fontSize: '1.25rem', margin: '0 0 1rem 0' }}>Order Summary</h2>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                 <span>Subtotal</span>
-                <span style={{ fontWeight: 600 }}>${cart.total_price}</span>
+                <span style={{ fontWeight: 600 }}>${calculateTotal()}</span>
               </div>
               <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '1rem 0' }} />
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', fontSize: '1.125rem', fontWeight: 600 }}>
                 <span>Total</span>
-                <span>${cart.total_price}</span>
+                <span>${calculateTotal()}</span>
               </div>
               <Button variant="primary" style={{ width: '100%' }} onClick={() => navigate('/checkout')}>
                 Proceed to Checkout

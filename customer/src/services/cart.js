@@ -8,9 +8,8 @@ export const cartService = {
   },
   addItem: async (productId, quantity = 1, variantId = null) => {
     const response = await axiosInstance.post(ENDPOINTS.ORDERS.CART, {
-      product: productId,
-      quantity,
-      variant: variantId
+      variant_id: variantId,
+      quantity: quantity
     });
     return response.data;
   },

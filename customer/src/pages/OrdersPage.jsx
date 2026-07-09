@@ -13,8 +13,8 @@ export default function OrdersPage() {
     const fetchOrders = async () => {
       try {
         const data = await ordersService.getMyOrders();
-        // Assume data is an array or { results: [] }
-        setOrders(data.results || data || []);
+        // Backend returns { orders: [...] }
+        setOrders(data.orders || data.results || data || []);
       } catch (err) {
         setError('Failed to load orders.');
       } finally {
@@ -40,7 +40,7 @@ export default function OrdersPage() {
         <div style={{ display: 'grid', gap: '1.5rem' }}>
           {orders.map(order => (
             <Card key={order.id || order.order_number}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div>
                   <h2 style={{ fontSize: '1.125rem', margin: '0 0 0.5rem 0' }}>Order #{order.order_number || order.id}</h2>
                   <p style={{ margin: 0, fontSize: '0.875rem' }}>
@@ -48,7 +48,7 @@ export default function OrdersPage() {
                   </p>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <p style={{ margin: '0 0 0.5rem 0', fontWeight: 600 }}>${order.total_price}</p>
+                  <p style={{ margin: '0 0 0.5rem 0', fontWeight: 600 }}>${parseFloat(order.total || 0).toFixed(2)}</p>
                   <span style={{ 
                     padding: '0.25rem 0.75rem', 
                     borderRadius: 'var(--radius-full)', 
@@ -61,20 +61,6 @@ export default function OrdersPage() {
                     {order.status || 'Pending'}
                   </span>
                 </div>
-              </div>
-              
-              <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '1rem 0' }} />
-              
-              <div>
-                <h3 style={{ fontSize: '0.875rem', marginBottom: '0.5rem' }}>Items</h3>
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                  {order.items?.map((item, idx) => (
-                    <li key={idx} style={{ fontSize: '0.875rem', display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-                      <span>{item.quantity}x {item.product_name || 'Product'}</span>
-                      <span>${(parseFloat(item.price || 0) * item.quantity).toFixed(2)}</span>
-                    </li>
-                  ))}
-                </ul>
               </div>
             </Card>
           ))}

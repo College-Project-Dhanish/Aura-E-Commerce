@@ -22,62 +22,53 @@ from .serializers import (
 )
 
 
-class GuestSessionMixin:
-    def get_cart_session_key(self, request):
-        key = request.session.get("cart_session_key")
-        if not key:
-            key = secrets.token_urlsafe(16)
-            request.session["cart_session_key"] = key
-        return key
-
-
-class CartView(GuestSessionMixin, APIView):
-    permission_classes = [permissions.AllowAny]
+class CartView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        cart_session = self.get_cart_session_key(request)
-        user_present = bool(request.user and request.user.is_authenticated)
-
         items = (
-            CartItem.objects.filter(cart_session=cart_session)
+            CartItem.objects.filter(user=request.user)
             .select_related("variant__product", "variant__color", "variant__size")
             .order_by("-updated_at")
         )
         serializer = CartItemSerializer(items, many=True)
-        return Response({"items": serializer.data, "cart_session": cart_session, "user": user_present})
+        return Response({"items": serializer.data, "user": True})
 
     @transaction.atomic
     def post(self, request):
         serializer = AddCartItemSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        cart_session = self.get_cart_session_key(request)
-
         variant: ProductVariant = serializer.validated_data["variant_id"]
         quantity = serializer.validated_data["quantity"]
 
-        cart_item, created = CartItem.objects.select_for_update().get_or_create(
-            cart_session=cart_session,
-            variant=variant,
-            defaults={"quantity": quantity, "user": request.user if request.user.is_authenticated else None},
-        )
-
-        if not created:
-            cart_item.quantity = cart_item.quantity + quantity
-        cart_item.user = request.user if request.user.is_authenticated else cart_item.user
-        cart_item.save()
+        cart_items = CartItem.objects.select_for_update().filter(user=request.user, variant=variant)
+        
+        if cart_items.exists():
+            cart_item = cart_items.first()
+            cart_item.quantity += quantity
+            cart_item.save()
+            
+            # Clean up any duplicates that might have been created under different session keys
+            if cart_items.count() > 1:
+                CartItem.objects.filter(user=request.user, variant=variant).exclude(id=cart_item.id).delete()
+        else:
+            cart_item = CartItem.objects.create(
+                user=request.user,
+                variant=variant,
+                quantity=quantity,
+                cart_session=str(request.user.id)
+            )
 
         return Response(CartItemSerializer(cart_item).data, status=status.HTTP_201_CREATED)
 
 
-class CartItemRemoveView(GuestSessionMixin, APIView):
-    permission_classes = [permissions.AllowAny]
+class CartItemRemoveView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
 
     @transaction.atomic
     def post(self, request, item_id: int):
-        cart_session = self.get_cart_session_key(request)
-
-        item = CartItem.objects.filter(id=item_id, cart_session=cart_session).first()
+        item = CartItem.objects.filter(id=item_id, user=request.user).first()
         if not item:
             return Response({"detail": "Cart item not found."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -85,17 +76,15 @@ class CartItemRemoveView(GuestSessionMixin, APIView):
         return Response({"detail": "Removed."}, status=status.HTTP_200_OK)
 
 
-class CartItemQuantityView(GuestSessionMixin, APIView):
-    permission_classes = [permissions.AllowAny]
+class CartItemQuantityView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
 
     @transaction.atomic
     def post(self, request, item_id: int):
         serializer = UpdateCartItemQuantitySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        cart_session = self.get_cart_session_key(request)
-
-        item = CartItem.objects.filter(id=item_id, cart_session=cart_session).first()
+        item = CartItem.objects.filter(id=item_id, user=request.user).first()
         if not item:
             return Response({"detail": "Cart item not found."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -105,15 +94,13 @@ class CartItemQuantityView(GuestSessionMixin, APIView):
         return Response(CartItemSerializer(item).data, status=status.HTTP_200_OK)
 
 
-class CheckoutView(GuestSessionMixin, APIView):
-    permission_classes = [permissions.AllowAny]
+class CheckoutView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
 
     @transaction.atomic
     def post(self, request):
-        cart_session = self.get_cart_session_key(request)
-
         cart_items = (
-            CartItem.objects.filter(cart_session=cart_session)
+            CartItem.objects.filter(user=request.user)
             .select_related("variant__product", "variant__color", "variant__size")
         )
         if not cart_items.exists():
@@ -124,13 +111,6 @@ class CheckoutView(GuestSessionMixin, APIView):
 
         address_payload = serializer.validated_data["address"]
         phone = address_payload["phone"]
-
-        # Keep existing behavior: checkout is gated to authenticated users in this slice.
-        if not request.user.is_authenticated:
-            return Response(
-                {"detail": "Checkout requires login in this current backend slice."},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
 
         coupon_code = serializer.validated_data.get("coupon_code", "").strip()
 
@@ -277,3 +257,4 @@ class OrderAdminDetailView(APIView):
             order.save()
             return Response(OrderSerializer(order).data)
         return Response({"detail": "Invalid status."}, status=status.HTTP_400_BAD_REQUEST)
+
