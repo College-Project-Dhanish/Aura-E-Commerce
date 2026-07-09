@@ -14,13 +14,13 @@ export const cartService = {
     return response.data;
   },
   updateItemQuantity: async (itemId, quantity) => {
-    const response = await axiosInstance.patch(ENDPOINTS.ORDERS.CART_ITEM_QUANTITY(itemId), {
+    const response = await axiosInstance.post(ENDPOINTS.ORDERS.CART_ITEM_QUANTITY(itemId), {
       quantity
     });
     return response.data;
   },
   removeItem: async (itemId) => {
-    const response = await axiosInstance.delete(ENDPOINTS.ORDERS.CART_ITEM_REMOVE(itemId));
+    const response = await axiosInstance.post(ENDPOINTS.ORDERS.CART_ITEM_REMOVE(itemId));
     return response.data;
   }
 };
