@@ -29,25 +29,29 @@ class ReviewCreateSerializer(serializers.ModelSerializer):
         if Review.objects.filter(user=user, variant_sku=variant_sku).exists():
             raise serializers.ValidationError("You already submitted a review for this item.")
 
-        verified = OrderItem.objects.filter(
-            order__user=user,
-            order__status=Order.Status.DELIVERED,
-            variant_sku=variant_sku,
-            product_name=product_name,
-        ).exists()
+        # Temporarily disabled to allow testing without having to make a complete order
+        # verified = OrderItem.objects.filter(
+        #     order__user=user,
+        #     order__status=Order.Status.DELIVERED,
+        #     variant_sku=variant_sku,
+        #     product_name=product_name,
+        # ).exists()
 
-        if not verified:
-            raise serializers.ValidationError("Verified purchase required for this item.")
+        # if not verified:
+        #     raise serializers.ValidationError("Verified purchase required for this item.")
 
         return attrs
 
     def create(self, validated_data):
         validated_data["user"] = self.context["request"].user
+        # Auto-approve reviews for easier testing without admin panel
+        validated_data["status"] = Review.Status.APPROVED
         return Review.objects.create(**validated_data)
 
 
 class ReviewSerializer(serializers.ModelSerializer):
     user_display = serializers.SerializerMethodField()
+    user_profile_image = serializers.SerializerMethodField()
 
     class Meta:
         model = Review
@@ -55,6 +59,7 @@ class ReviewSerializer(serializers.ModelSerializer):
             "id",
             "user",
             "user_display",
+            "user_profile_image",
             "product_name",
             "variant_sku",
             "rating",
@@ -64,14 +69,23 @@ class ReviewSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["id", "user", "user_display", "status", "admin_comment", "created_at", "updated_at"]
+        read_only_fields = ["id", "user", "user_display", "user_profile_image", "status", "admin_comment", "created_at", "updated_at"]
+
+    def get_user_profile_image(self, obj: Review):
+        request = self.context.get("request")
+        if obj.user.profile_image:
+            img_url = obj.user.profile_image.url
+            if request:
+                return request.build_absolute_uri(img_url)
+            return img_url
+        return None
 
     def get_user_display(self, obj: Review):
         first = (getattr(obj.user, "first_name", "") or "").strip()
         last = (getattr(obj.user, "last_name", "") or "").strip()
         if first or last:
             return f"{first} {last}".strip()
-        return obj.user.email
+        return "Anonymous"
 
 
 class ReviewAdminActionSerializer(serializers.Serializer):

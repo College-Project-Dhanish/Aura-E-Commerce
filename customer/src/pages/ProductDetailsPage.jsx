@@ -134,7 +134,24 @@ export default function ProductDetailsPage() {
       setPostReviewSuccess('Review submitted successfully (pending approval).');
       await fetchReviews();
     } catch (err) {
-      setPostReviewError(err?.response?.data?.detail || err?.message || 'Failed to submit review');
+      const data = err?.response?.data;
+      let msg = 'Failed to submit review';
+      if (data) {
+        if (data.detail) msg = data.detail;
+        else if (data.non_field_errors) msg = data.non_field_errors[0];
+        else if (Array.isArray(data) && data.length > 0) msg = data[0];
+        else if (typeof data === 'object') {
+          const firstKey = Object.keys(data)[0];
+          if (firstKey && Array.isArray(data[firstKey])) {
+            msg = `${data[firstKey][0]}`;
+          } else if (firstKey) {
+            msg = `${data[firstKey]}`;
+          }
+        }
+      } else if (err?.message) {
+        msg = err.message;
+      }
+      setPostReviewError(msg);
     } finally {
       setPostingReview(false);
     }
@@ -260,20 +277,46 @@ export default function ProductDetailsPage() {
             {!reviewsLoading && !reviewsError && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 {reviews.length === 0 && <p style={{ color: 'var(--text-muted)' }}>No reviews yet.</p>}
-                {reviews.map((r) => (
-                  <Card key={r.id}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                      <div style={{ fontWeight: 600 }}>{r.user_display || 'Customer'}</div>
-                      <div style={{ display: 'flex', color: '#fbbf24' }}>
-                        {'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}
+                {reviews.map((r) => {
+                  let avatarUrl = null;
+                  if (r.user_profile_image) {
+                    if (r.user_profile_image.startsWith('http')) {
+                      avatarUrl = r.user_profile_image;
+                    } else {
+                      const API_URL = import.meta.env?.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api';
+                      const BASE_URL = API_URL.replace('/api', '').replace(/\/$/, '');
+                      avatarUrl = `${BASE_URL}${r.user_profile_image.startsWith('/') ? r.user_profile_image : '/' + r.user_profile_image}`;
+                    }
+                  }
+                  
+                  return (
+                    <Card key={r.id}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                          {avatarUrl ? (
+                            <img 
+                              src={avatarUrl} 
+                              alt={r.user_display} 
+                              style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} 
+                            />
+                          ) : (
+                            <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: 'var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+                              {(r.user_display && r.user_display !== 'Anonymous') ? r.user_display.charAt(0).toUpperCase() : 'A'}
+                            </div>
+                          )}
+                          <div style={{ fontWeight: 600 }}>{r.user_display || 'Customer'}</div>
+                        </div>
+                        <div style={{ display: 'flex', color: '#fbbf24', alignItems: 'center' }}>
+                          {'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}
+                        </div>
                       </div>
-                    </div>
-                    <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '0.75rem' }}>
-                      Variant: {r.variant_sku} · {r.created_at ? new Date(r.created_at).toLocaleDateString() : ''}
-                    </div>
-                    <p style={{ margin: 0, fontSize: '0.9375rem', whiteSpace: 'pre-wrap' }}>{r.comment}</p>
-                  </Card>
-                ))}
+                      <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '0.75rem' }}>
+                        Variant: {r.variant_sku} · {r.created_at ? new Date(r.created_at).toLocaleDateString() : ''}
+                      </div>
+                      <p style={{ margin: 0, fontSize: '0.9375rem', whiteSpace: 'pre-wrap' }}>{r.comment}</p>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </div>
