@@ -15,7 +15,10 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
   const [expandedOrderId, setExpandedOrderId] = useState(null);
+  const [orderDetailsMap, setOrderDetailsMap] = useState({});
+  const [loadingDetails, setLoadingDetails] = useState({});
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -30,6 +33,27 @@ export default function OrdersPage() {
     };
     fetchOrders();
   }, []);
+
+  const handleExpand = async (orderId, orderNumber) => {
+    if (expandedOrderId === orderId) {
+      setExpandedOrderId(null);
+      return;
+    }
+    
+    setExpandedOrderId(orderId);
+    
+    if (!orderDetailsMap[orderId]) {
+      try {
+        setLoadingDetails(prev => ({ ...prev, [orderId]: true }));
+        const details = await ordersService.getOrderDetails(orderNumber || orderId);
+        setOrderDetailsMap(prev => ({ ...prev, [orderId]: details }));
+      } catch (e) {
+        console.error("Failed to fetch order details", e);
+      } finally {
+        setLoadingDetails(prev => ({ ...prev, [orderId]: false }));
+      }
+    }
+  };
 
   if (loading) return <LoadingSpinner fullScreen />;
 
@@ -48,6 +72,23 @@ export default function OrdersPage() {
       default:
         return { color: 'text-yellow-600', bg: 'bg-yellow-50', border: 'border-yellow-200', icon: Clock, label: 'Pending' };
     }
+  };
+
+  const getTimelineSteps = (status) => {
+    const s = (status || 'pending').toLowerCase();
+    const isCancelled = s === 'cancelled';
+    if (isCancelled) {
+      return [
+        { label: 'Order Placed', active: true, done: true },
+        { label: 'Cancelled', active: true, done: true, isError: true }
+      ];
+    }
+    return [
+      { label: 'Order Placed', active: true, done: true },
+      { label: 'Processing', active: ['processing', 'shipped', 'completed', 'delivered'].includes(s), done: ['processing', 'shipped', 'completed', 'delivered'].includes(s) },
+      { label: 'Shipped', active: ['shipped', 'completed', 'delivered'].includes(s), done: ['shipped', 'completed', 'delivered'].includes(s) },
+      { label: 'Delivered', active: ['completed', 'delivered'].includes(s), done: ['completed', 'delivered'].includes(s) },
+    ];
   };
 
   return (
@@ -80,6 +121,9 @@ export default function OrdersPage() {
                 const isExpanded = expandedOrderId === order.id;
                 const statusConfig = getStatusConfig(order.status);
                 const StatusIcon = statusConfig.icon;
+                const fullOrder = orderDetailsMap[order.id];
+                const isDetailsLoading = loadingDetails[order.id];
+                const timelineSteps = getTimelineSteps(order.status);
                 
                 return (
                   <motion.div 
@@ -92,7 +136,7 @@ export default function OrdersPage() {
                   >
                     <div 
                       className="p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 cursor-pointer hover:bg-secondary/50 transition-colors"
-                      onClick={() => setExpandedOrderId(isExpanded ? null : order.id)}
+                      onClick={() => handleExpand(order.id, order.order_number)}
                     >
                       <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-6">
                         <div>
@@ -135,14 +179,18 @@ export default function OrdersPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                               <div>
                                 <h5 className="text-xs font-bold tracking-widest uppercase text-muted mb-3">Shipping Address</h5>
-                                <div className="text-sm font-medium text-primary leading-relaxed bg-white p-5 rounded-2xl border border-border">
-                                  {order.address ? (
+                                <div className="text-sm font-medium text-primary leading-relaxed bg-white p-5 rounded-2xl border border-border min-h-[140px] flex flex-col justify-center">
+                                  {isDetailsLoading ? (
+                                    <div className="flex justify-center w-full">
+                                      <LoadingSpinner size="1.5rem" />
+                                    </div>
+                                  ) : fullOrder && fullOrder.ship_first_name ? (
                                     <>
-                                      <p>{order.address.first_name} {order.address.last_name}</p>
-                                      <p>{order.address.line1}</p>
-                                      {order.address.line2 && <p>{order.address.line2}</p>}
-                                      <p>{order.address.city}, {order.address.state} {order.address.postal_code}</p>
-                                      <p>{order.address.country}</p>
+                                      <p>{fullOrder.ship_first_name} {fullOrder.ship_last_name}</p>
+                                      <p>{fullOrder.ship_line1}</p>
+                                      {fullOrder.ship_line2 && <p>{fullOrder.ship_line2}</p>}
+                                      <p>{fullOrder.ship_city}, {fullOrder.ship_state} {fullOrder.ship_postal_code}</p>
+                                      <p>{fullOrder.ship_country}</p>
                                     </>
                                   ) : (
                                     <p className="text-muted italic">Address details unavailable.</p>
@@ -155,21 +203,18 @@ export default function OrdersPage() {
                                 <div className="relative pl-6 space-y-6">
                                   <div className="absolute left-[11px] top-2 bottom-2 w-px bg-border"></div>
                                   
-                                  <div className="relative">
-                                    <div className="absolute left-[-29px] top-0 w-4 h-4 rounded-full border-[3px] border-white bg-primary shadow-sm z-10"></div>
-                                    <p className="text-sm font-bold text-primary">Order Placed</p>
-                                    <p className="text-xs text-muted">{new Date(order.created_at).toLocaleDateString()}</p>
-                                  </div>
-                                  
-                                  <div className="relative opacity-40">
-                                    <div className="absolute left-[-29px] top-0 w-4 h-4 rounded-full border-[3px] border-white bg-muted z-10"></div>
-                                    <p className="text-sm font-bold text-primary">Processing</p>
-                                  </div>
-                                  
-                                  <div className="relative opacity-40">
-                                    <div className="absolute left-[-29px] top-0 w-4 h-4 rounded-full border-[3px] border-white bg-muted z-10"></div>
-                                    <p className="text-sm font-bold text-primary">Delivered</p>
-                                  </div>
+                                  {timelineSteps.map((step, i) => (
+                                    <div key={i} className={cn("relative", !step.active && "opacity-40")}>
+                                      <div className={cn(
+                                        "absolute left-[-29px] top-0 w-4 h-4 rounded-full border-[3px] border-white z-10", 
+                                        step.done 
+                                          ? step.isError ? "bg-red-500 shadow-sm" : "bg-primary shadow-sm" 
+                                          : "bg-muted"
+                                      )}></div>
+                                      <p className={cn("text-sm font-bold", step.isError ? "text-red-500" : "text-primary")}>{step.label}</p>
+                                      {i === 0 && <p className="text-xs text-muted">{new Date(order.created_at).toLocaleDateString()}</p>}
+                                    </div>
+                                  ))}
                                 </div>
                               </div>
                             </div>
