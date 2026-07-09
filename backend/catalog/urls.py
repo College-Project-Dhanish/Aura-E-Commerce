@@ -6,18 +6,22 @@ from .views import (
     CollectionAdminCrudView,
     CollectionListView,
     ColorAdminCrudView,
+    ColorListView,
     ProductAdminCrudView,
     ProductDetailBySlugView,
     ProductImageAdminCrudView,
     ProductListView,
     ProductVariantAdminCrudView,
     SizeAdminCrudView,
+    SizeListView,
 )
 
 urlpatterns = [
     # Customer read-only
     path("categories/", CategoryListView.as_view(), name="catalog-categories"),
     path("collections/", CollectionListView.as_view(), name="catalog-collections"),
+    path("colors/", ColorListView.as_view(), name="catalog-colors"),
+    path("sizes/", SizeListView.as_view(), name="catalog-sizes"),
     path("products/", ProductListView.as_view(), name="catalog-products"),
     path("products/<slug:slug>/", ProductDetailBySlugView.as_view(), name="catalog-product-detail"),
     # Admin CRUD

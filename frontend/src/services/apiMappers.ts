@@ -44,7 +44,7 @@ const hashString = (value: string) => {
   return Math.abs(hash);
 };
 
-const pickColorCode = (seed: string) => COLOR_PALETTE[hashString(seed) % COLOR_PALETTE.length];
+export const pickColorCode = (seed: string) => COLOR_PALETTE[hashString(seed) % COLOR_PALETTE.length];
 
 const buildImages = (images?: Array<{ image?: string }>, thumbnail?: string) => {
   const mapped = (images || []).map((image) => absoluteUrl(image.image)).filter(Boolean);

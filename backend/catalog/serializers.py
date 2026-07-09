@@ -42,6 +42,7 @@ class ProductImageSerializer(serializers.ModelSerializer):
 
 
 class ProductVariantSerializer(serializers.ModelSerializer):
+    product = serializers.CharField(source="product.name", read_only=True)
     color = ColorSerializer(read_only=True)
     size = SizeSerializer(read_only=True)
 
@@ -53,6 +54,7 @@ class ProductVariantSerializer(serializers.ModelSerializer):
             "stock",
             "price_override",
             "discount_price_override",
+            "product",
             "color",
             "size",
         ]
@@ -193,6 +195,8 @@ class ProductListSerializer(serializers.ModelSerializer):
     effective_price = serializers.SerializerMethodField()
     effective_discount_price = serializers.SerializerMethodField()
 
+    variants = ProductVariantSerializer(many=True, read_only=True)
+
     class Meta:
         model = Product
         fields = [
@@ -210,6 +214,7 @@ class ProductListSerializer(serializers.ModelSerializer):
             "published",
             "effective_price",
             "effective_discount_price",
+            "variants",
         ]
 
     def get_effective_price(self, obj: Product):

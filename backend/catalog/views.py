@@ -39,6 +39,16 @@ class CollectionListView(generics.ListAPIView):
     queryset = Collection.objects.all().order_by("name")
 
 
+class ColorListView(generics.ListAPIView):
+    serializer_class = ColorSerializer
+    queryset = Color.objects.all().order_by("name")
+
+
+class SizeListView(generics.ListAPIView):
+    serializer_class = SizeSerializer
+    queryset = Size.objects.all().order_by("name")
+
+
 class ProductListView(APIView):
     pagination_class = PageNumberPagination
     """

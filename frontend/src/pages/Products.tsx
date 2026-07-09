@@ -20,19 +20,10 @@ export const Products: React.FC = () => {
   const sortVal = searchParams.get('sort') || 'newest';
 
   // Available Filter Option Lists
-  const [categories, setCategories] = useState<string[]>([]);
-  const [collections, setCollections] = useState<string[]>([]);
-  const availableSizes = ['S', 'M', 'L', 'XL'];
-  const availableColors = [
-    { name: 'Obsidian Black', code: '#171717' },
-    { name: 'Parchment White', code: '#F5F5F0' },
-    { name: 'Chalk White', code: '#FFFFFF' },
-    { name: 'Slate Gray', code: '#707072' },
-    { name: 'Sand Beige', code: '#D2C5B4' },
-    { name: 'Oatmeal Beige', code: '#E5DCD3' },
-    { name: 'Classic Oxford Blue', code: '#A4C3D2' },
-    { name: 'Sage Green', code: '#7D8C83' }
-  ];
+  const [categories, setCategories] = useState<{name: string, slug: string}[]>([]);
+  const [collections, setCollections] = useState<{name: string, slug: string}[]>([]);
+  const [availableSizes, setAvailableSizes] = useState<{name: string, slug: string}[]>([]);
+  const [availableColors, setAvailableColors] = useState<{name: string; code: string; slug: string}[]>([]);
 
   // Load static option lists
   useEffect(() => {
@@ -40,10 +31,15 @@ export const Products: React.FC = () => {
       try {
         const cats = await catalogService.getCategories();
         const colls = await catalogService.getCollections();
+        const colors = await catalogService.getColors();
+        const sizes = await catalogService.getSizes();
         setCategories(cats);
         setCollections(colls);
-      } catch (err) {
+        setAvailableColors(colors);
+        setAvailableSizes(sizes);
+      } catch (err: any) {
         console.error(err);
+        window.alert("Error fetching metadata: " + err.message);
       }
     };
     fetchMetadata();
@@ -68,9 +64,10 @@ export const Products: React.FC = () => {
           setProductsList(filtered);
           setLoading(false);
         }, 500);
-      } catch (err) {
+      } catch (err: any) {
         console.error(err);
         setLoading(false);
+        window.alert("Error fetching products: " + err.message);
       }
     };
 
@@ -153,15 +150,15 @@ export const Products: React.FC = () => {
               </button>
               {categories.map(cat => (
                 <button
-                  key={cat}
-                  onClick={() => updateParam('category', cat)}
+                  key={cat.slug}
+                  onClick={() => updateParam('category', cat.slug)}
                   className={`text-left py-2 px-3 border transition-colors capitalize ${
-                    categoryVal === cat
+                    categoryVal === cat.slug
                       ? 'bg-brand-dark text-white border-brand-dark dark:bg-white dark:text-brand-dark dark:border-white font-semibold'
                       : 'border-neutral-100 hover:border-neutral-300 dark:border-neutral-900 text-neutral-600 dark:text-neutral-400'
                   }`}
                 >
-                  {cat}
+                  {cat.name}
                 </button>
               ))}
             </div>
@@ -183,15 +180,15 @@ export const Products: React.FC = () => {
               </button>
               {collections.map(col => (
                 <button
-                  key={col}
-                  onClick={() => updateParam('collection', col)}
+                  key={col.slug}
+                  onClick={() => updateParam('collection', col.slug)}
                   className={`text-left py-2 px-3 border transition-colors ${
-                    collectionVal === col
+                    collectionVal === col.slug
                       ? 'bg-brand-dark text-white border-brand-dark dark:bg-white dark:text-brand-dark dark:border-white font-semibold'
                       : 'border-neutral-100 hover:border-neutral-300 dark:border-neutral-900 text-neutral-600 dark:text-neutral-400'
                   }`}
                 >
-                  {col}
+                  {col.name}
                 </button>
               ))}
             </div>
@@ -203,17 +200,17 @@ export const Products: React.FC = () => {
             <div className="flex flex-wrap gap-2.5">
               {availableColors.map(color => (
                 <button
-                  key={color.name}
-                  onClick={() => updateParam('color', colorVal === color.name ? '' : color.name)}
+                  key={color.slug}
+                  onClick={() => updateParam('color', colorVal === color.slug ? '' : color.slug)}
                   className={`w-6 h-6 rounded-full border transition-all duration-250 relative ${
-                    colorVal === color.name
+                    colorVal === color.slug
                       ? 'border-brand-dark dark:border-white scale-125 ring-2 ring-offset-2 ring-neutral-400 dark:ring-offset-black'
                       : 'border-neutral-300 dark:border-neutral-800 hover:scale-110'
                   }`}
                   style={{ backgroundColor: color.code }}
                   title={color.name}
                 >
-                  {colorVal === color.name && (
+                  {colorVal === color.slug && (
                     <span className="absolute inset-0 flex items-center justify-center text-[9px] text-white mix-blend-difference">✓</span>
                   )}
                 </button>
@@ -227,15 +224,16 @@ export const Products: React.FC = () => {
             <div className="flex gap-2">
               {availableSizes.map(sz => (
                 <button
-                  key={sz}
-                  onClick={() => updateParam('size', sizeVal === sz ? '' : sz)}
+                  key={sz.slug}
+                  onClick={() => updateParam('size', sizeVal === sz.slug ? '' : sz.slug)}
                   className={`w-10 h-10 border text-xs font-mono tracking-wider transition-all duration-200 active:scale-95 flex items-center justify-center ${
-                    sizeVal === sz
+                    sizeVal === sz.slug
                       ? 'bg-brand-dark text-white border-brand-dark dark:bg-white dark:text-brand-dark dark:border-white font-semibold'
                       : 'border-neutral-200 dark:border-neutral-800 hover:border-neutral-400 text-neutral-600 dark:text-neutral-400'
                   }`}
+                  title={sz.name}
                 >
-                  {sz}
+                  {sz.name}
                 </button>
               ))}
             </div>

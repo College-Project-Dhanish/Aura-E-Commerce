@@ -10,13 +10,13 @@ import {
   Address 
 } from '../types';
 import {
-  mapCatalogOption,
   mapCartItem,
   mapOrder,
   mapProductDetail,
   mapProductListItem,
   mapReview,
   mapUser,
+  pickColorCode,
 } from './apiMappers';
 
 /**
@@ -24,7 +24,7 @@ import {
  * - Prefer VITE_API_BASE_URL if set
  * - Fallback to same-origin `/api/` to avoid hardcoded localhost issues
  */
-const API_BASE_URL = ((import.meta as any).env?.VITE_API_BASE_URL as string) || 'http://127.0.0.1:8000/api/';
+import { ENDPOINTS, API_BASE_URL } from './endpoints';
 
 // Set up axios instance
 export const axiosClient = axios.create({
@@ -57,28 +57,45 @@ axiosClient.interceptors.response.use(
     const status = error?.response?.status;
     const refreshToken = localStorage.getItem('refresh_token') || localStorage.getItem('refresh');
 
-    if (status === 401 && originalRequest && !originalRequest._retry && refreshToken) {
+    // Handle 401 Unauthorized globally
+    if (status === 401 && originalRequest && !originalRequest._retry) {
       originalRequest._retry = true;
 
-      try {
-        const refreshResponse = await axios.post(`${API_BASE_URL}auth/refresh/`, { refresh: refreshToken });
-        const newAccess = refreshResponse.data?.access;
+      // Attempt to refresh if we have a refresh token
+      if (refreshToken) {
+        try {
+          // IMPORTANT: The backend endpoint is /auth/refresh/, NOT /auth/refresh/
+          const refreshResponse = await axios.post(ENDPOINTS.AUTH.REFRESH, { refresh: refreshToken });
+          const newAccess = refreshResponse.data?.access;
 
-        if (newAccess) {
-          localStorage.setItem('access_token', newAccess);
-          localStorage.setItem('access', newAccess);
-          originalRequest.headers = {
-            ...(originalRequest.headers || {}),
-            Authorization: `Bearer ${newAccess}`,
-          };
-          return axiosClient(originalRequest);
+          if (newAccess) {
+            localStorage.setItem('access_token', newAccess);
+            localStorage.setItem('access', newAccess);
+            originalRequest.headers = {
+              ...(originalRequest.headers || {}),
+              Authorization: `Bearer ${newAccess}`,
+            };
+            return await axiosClient(originalRequest);
+          }
+        } catch (refreshError) {
+          // Fall through to anonymous retry if refresh fails
         }
-      } catch (refreshError) {
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('access');
-        localStorage.removeItem('refresh');
-        return Promise.reject(refreshError);
+      }
+
+      // If we reach here, tokens are either missing, expired, or invalid. Clear them.
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('access');
+      localStorage.removeItem('refresh');
+      
+      // Remove auth header and retry as anonymous user
+      if (originalRequest.headers) {
+        delete originalRequest.headers.Authorization;
+      }
+      try {
+        return await axiosClient(originalRequest);
+      } catch (anonymousError) {
+        return Promise.reject(anonymousError);
       }
     }
 
@@ -156,7 +173,7 @@ const mockDB = {
 export const authService = {
   login: async (email: string, password_raw: string): Promise<{ access: string; refresh: string; user: User }> => {
     if (USE_REAL_BACKEND) {
-      const response = await axiosClient.post('/auth/login/', { email, password: password_raw });
+      const response = await axiosClient.post(ENDPOINTS.AUTH.LOGIN, { email, password: password_raw });
       const { access, refresh } = response.data;
       localStorage.setItem('access_token', access);
       localStorage.setItem('refresh_token', refresh);
@@ -187,7 +204,7 @@ export const authService = {
 
   register: async (email: string, first_name: string, last_name: string, password_raw: string): Promise<User> => {
     if (USE_REAL_BACKEND) {
-      const response = await axiosClient.post('/auth/register/', { email, first_name, last_name, password: password_raw });
+      const response = await axiosClient.post(ENDPOINTS.AUTH.REGISTER, { email, first_name, last_name, password: password_raw });
       return mapUser(response.data);
     } else {
       const user: User = {
@@ -204,7 +221,7 @@ export const authService = {
 
   getProfile: async (): Promise<User> => {
     if (USE_REAL_BACKEND) {
-      const response = await axiosClient.get('/auth/profile/');
+      const response = await axiosClient.get(ENDPOINTS.AUTH.PROFILE);
       return mapUser(response.data);
     } else {
       const user = mockDB.getCurrentUser();
@@ -214,28 +231,28 @@ export const authService = {
   },
 
   updateProfile: async (payload: Partial<User>): Promise<User> => {
-    const response = await axiosClient.patch('/auth/profile/', payload);
+    const response = await axiosClient.patch(ENDPOINTS.AUTH.PROFILE, payload);
     const user = mapUser(response.data);
     mockDB.saveCurrentUser(user);
     return user;
   },
 
   changePassword: async (old_password: string, new_password: string): Promise<void> => {
-    await axiosClient.post('/auth/change-password/', { old_password, new_password });
+    await axiosClient.post(ENDPOINTS.AUTH.CHANGE_PASSWORD, { old_password, new_password });
   },
 
   forgotPassword: async (email: string): Promise<void> => {
-    await axiosClient.post('/auth/forgot-password/', { email });
+    await axiosClient.post(ENDPOINTS.AUTH.FORGOT_PASSWORD, { email });
   },
 
   resetPassword: async (email: string, token: string, new_password: string): Promise<void> => {
-    await axiosClient.post('/auth/reset-password/', { email, token, new_password });
+    await axiosClient.post(ENDPOINTS.AUTH.RESET_PASSWORD, { email, token, new_password });
   },
 
   logout: async (): Promise<void> => {
     if (USE_REAL_BACKEND) {
       try {
-        await axiosClient.post('/auth/logout/', { refresh: localStorage.getItem('refresh_token') });
+        await axiosClient.post(ENDPOINTS.AUTH.LOGOUT, { refresh: localStorage.getItem('refresh_token') });
       } catch (e) {
         console.warn('Backend token logout error:', e);
       }
@@ -263,15 +280,15 @@ export const catalogService = {
       const params: Record<string, any> = {};
       if (filters) {
         if (filters.search) params.search = filters.search;
-        if (filters.category) params.category = filters.category;
-        if (filters.collection) params.collection = filters.collection;
+        if (filters.category && filters.category !== 'all') params.category = filters.category;
+        if (filters.collection && filters.collection !== 'all') params.collection = filters.collection;
         if (filters.color) params.color = filters.color;
         if (filters.size) params.size = filters.size;
         if (filters.priceMin !== undefined) params.price_min = filters.priceMin;
         if (filters.priceMax !== undefined) params.price_max = filters.priceMax;
         if (filters.sort) params.ordering = filters.sort;
       }
-      const response = await axiosClient.get('/catalog/products/', { params });
+      const response = await axiosClient.get(ENDPOINTS.CATALOG.PRODUCTS, { params });
       // DRF might return paginated results: { count, results } or just flat array
       const rawProducts = Array.isArray(response.data) ? response.data : response.data.results || [];
       return rawProducts.map(mapProductListItem);
@@ -320,7 +337,7 @@ export const catalogService = {
 
   getProductBySlug: async (slug: string): Promise<Product> => {
     if (USE_REAL_BACKEND) {
-      const response = await axiosClient.get(`/catalog/products/${slug}/`);
+      const response = await axiosClient.get(ENDPOINTS.CATALOG.PRODUCT_DETAIL(slug));
       return mapProductDetail(response.data);
     } else {
       const prods = mockDB.getProducts();
@@ -330,21 +347,47 @@ export const catalogService = {
     }
   },
 
-  getCategories: async (): Promise<string[]> => {
+  getCategories: async (): Promise<{name: string, slug: string}[]> => {
     if (USE_REAL_BACKEND) {
-      const response = await axiosClient.get('/catalog/categories/');
-      return response.data.map((c: any) => c.name);
+      const response = await axiosClient.get(ENDPOINTS.CATALOG.CATEGORIES);
+      const rawData = Array.isArray(response.data) ? response.data : response.data.results || [];
+      return rawData.map((c: any) => ({ name: c.name, slug: c.slug }));
     } else {
-      return ['shirts', 't-shirts'];
+      return [{name: 'shirts', slug: 'shirts'}, {name: 't-shirts', slug: 't-shirts'}];
     }
   },
 
-  getCollections: async (): Promise<string[]> => {
+  getCollections: async (): Promise<{name: string, slug: string}[]> => {
     if (USE_REAL_BACKEND) {
-      const response = await axiosClient.get('/catalog/collections/');
-      return response.data.map((c: any) => c.name);
+      const response = await axiosClient.get(ENDPOINTS.CATALOG.COLLECTIONS);
+      const rawData = Array.isArray(response.data) ? response.data : response.data.results || [];
+      return rawData.map((c: any) => ({ name: c.name, slug: c.slug }));
     } else {
-      return ['Essential Drop', 'Classic Minimalist', 'Urban Essentials', 'Summer Drop'];
+      return [{name: 'Essential Drop', slug: 'essential-drop'}];
+    }
+  },
+
+  getColors: async (): Promise<{name: string; code: string; slug: string}[]> => {
+    if (USE_REAL_BACKEND) {
+      const response = await axiosClient.get(ENDPOINTS.CATALOG.COLORS);
+      const rawData = Array.isArray(response.data) ? response.data : response.data.results || [];
+      return rawData.map((c: any) => ({
+        name: c.name,
+        slug: c.slug,
+        code: pickColorCode(c.slug || c.name)
+      }));
+    } else {
+      return [];
+    }
+  },
+
+  getSizes: async (): Promise<{name: string, slug: string}[]> => {
+    if (USE_REAL_BACKEND) {
+      const response = await axiosClient.get(ENDPOINTS.CATALOG.SIZES);
+      const rawData = Array.isArray(response.data) ? response.data : response.data.results || [];
+      return rawData.map((s: any) => ({ name: s.name, slug: s.slug }));
+    } else {
+      return [{name: 'S', slug: 's'}, {name: 'M', slug: 'm'}];
     }
   }
 };
@@ -352,7 +395,7 @@ export const catalogService = {
 export const cartService = {
   getCart: async (): Promise<CartItem[]> => {
     if (USE_REAL_BACKEND) {
-      const response = await axiosClient.get('/orders/cart/');
+      const response = await axiosClient.get(ENDPOINTS.ORDERS.CART);
       const items = response.data.items || [];
       
       const mappedItems = await Promise.all(items.map(async (item: any) => {
@@ -376,7 +419,7 @@ export const cartService = {
       const variantId = product.variants?.find(v => v.color.name === color && v.size.name === size)?.id;
       if (!variantId) throw new Error('Selected variant is missing (color/size)');
 
-      await axiosClient.post('/orders/cart/', {
+      await axiosClient.post(ENDPOINTS.ORDERS.CART, {
         variant_id: variantId,
         quantity,
       });
@@ -411,7 +454,7 @@ export const cartService = {
   removeFromCart: async (itemId: number): Promise<CartItem[]> => {
     if (USE_REAL_BACKEND) {
       // Backend: POST /orders/cart/items/<item_id>/remove/
-      await axiosClient.post(`/orders/cart/items/${itemId}/remove/`);
+      await axiosClient.post(ENDPOINTS.ORDERS.CART_ITEM_REMOVE(itemId));
       return cartService.getCart();
     }
 
@@ -424,7 +467,7 @@ export const cartService = {
   updateCartQuantity: async (itemId: number, quantity: number): Promise<CartItem[]> => {
     if (USE_REAL_BACKEND) {
       // Backend: POST /orders/cart/items/<item_id>/quantity/
-      await axiosClient.post(`/orders/cart/items/${itemId}/quantity/`, { quantity });
+      await axiosClient.post(ENDPOINTS.ORDERS.CART_ITEM_QUANTITY(itemId), { quantity });
       return cartService.getCart();
     }
 
@@ -449,7 +492,7 @@ export const wishlistService = {
 export const checkoutService = {
   validateCoupon: async (code: string, subtotal: number): Promise<CouponValidation> => {
     if (USE_REAL_BACKEND) {
-      const response = await axiosClient.post('/promotions/coupons/validate/', { code, subtotal });
+      const response = await axiosClient.post(ENDPOINTS.PROMOTIONS.VALIDATE_COUPON, { code, subtotal });
       return response.data;
     } else {
       const validCoupons: Record<string, { type: 'percent' | 'fixed'; value: number }> = {
@@ -493,7 +536,7 @@ export const checkoutService = {
     discount_total: number;
   }): Promise<Order> => {
     if (USE_REAL_BACKEND) {
-      const response = await axiosClient.post('/orders/checkout/', orderData);
+      const response = await axiosClient.post(ENDPOINTS.ORDERS.CHECKOUT, orderData);
       // Side effect: clear local/session cart
       cartService.clearCart();
       return mapOrder(response.data);
@@ -540,7 +583,7 @@ export const checkoutService = {
 
   getOrders: async (): Promise<Order[]> => {
     if (USE_REAL_BACKEND) {
-      const response = await axiosClient.get('/orders/me/orders/');
+      const response = await axiosClient.get(ENDPOINTS.ORDERS.MY_ORDERS);
       return Array.isArray(response.data) ? response.data.map(mapOrder) : [];
     } else {
       return mockDB.getOrders();
@@ -558,7 +601,7 @@ export const reviewsService = {
       if (filters?.productName) params.product_name = filters.productName;
       if (filters?.variantSku) params.variant_sku = filters.variantSku;
 
-      const response = await axiosClient.get('/reviews/', { params });
+      const response = await axiosClient.get(ENDPOINTS.REVIEWS.LIST_CREATE, { params });
       const data = response.data;
       const reviews = Array.isArray(data?.items) ? data.items : [];
       return reviews.map(mapReview);
@@ -589,7 +632,7 @@ export const reviewsService = {
     user_name: string;
   }): Promise<Review> => {
     if (USE_REAL_BACKEND) {
-      const response = await axiosClient.post('/reviews/', reviewData);
+      const response = await axiosClient.post(ENDPOINTS.REVIEWS.LIST_CREATE, reviewData);
       return mapReview(response.data);
     }
 
@@ -615,7 +658,7 @@ export const reviewsService = {
 export const newsletterService = {
   subscribe: async (email: string): Promise<{ status: string; message: string }> => {
     if (USE_REAL_BACKEND) {
-      const response = await axiosClient.post('/newsletter/subscribe/', { email });
+      const response = await axiosClient.post(ENDPOINTS.NEWSLETTER.SUBSCRIBE, { email });
       return response.data;
     } else {
       return {
