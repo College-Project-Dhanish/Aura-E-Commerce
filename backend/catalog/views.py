@@ -4,7 +4,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Category, Collection, Color, Product, ProductImage, ProductVariant, Size
+from .models import Category, Collection, Color, Product, ProductImage, ProductVariant, Size, VariantImage
 from .serializers import (
     CategorySerializer,
     CategoryWriteSerializer,
@@ -21,6 +21,8 @@ from .serializers import (
     ProductWriteSerializer,
     SizeSerializer,
     SizeWriteSerializer,
+    VariantImageSerializer,
+    VariantImageWriteSerializer,
 )
 
 
@@ -295,3 +297,14 @@ class ProductImageAdminCrudView(_AdminCrudBase):
 
     def get_write_serializer(self):
         return ProductImageWriteSerializer
+
+
+class VariantImageAdminCrudView(_AdminCrudBase):
+    def get_queryset(self):
+        return VariantImage.objects.all().select_related("variant")
+
+    def get_list_serializer(self):
+        return VariantImageSerializer
+
+    def get_write_serializer(self):
+        return VariantImageWriteSerializer

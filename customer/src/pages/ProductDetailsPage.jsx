@@ -1,12 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Star, ShoppingBag, Truck, RotateCcw, ShieldCheck, ChevronDown, Plus, Minus } from 'lucide-react';
+import { ArrowLeft, Star, ShoppingBag, Truck, RotateCcw, ShieldCheck, Plus, Minus } from 'lucide-react';
 import axiosInstance from '../api/axiosInstance';
 import { ENDPOINTS } from '../services/endpoints';
 import { useAuth } from '../contexts/AuthContext';
 import { cartService } from '../services/cart';
-import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import ErrorAlert from '../components/ui/ErrorAlert';
@@ -21,6 +20,7 @@ export default function ProductDetailsPage() {
   const { slug } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -30,7 +30,6 @@ export default function ProductDetailsPage() {
   const [reviewsError, setReviewsError] = useState(null);
   const [reviews, setReviews] = useState([]);
 
-  const [selectedVariantSku, setSelectedVariantSku] = useState('');
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
   const [postingReview, setPostingReview] = useState(false);
@@ -48,9 +47,12 @@ export default function ProductDetailsPage() {
     try {
       setLoading(true);
       setError(null);
-      const url = ENDPOINTS.CATALOG.PRODUCT_DETAIL(slug);
+      // Pass color and size params to backend
+      const params = new URLSearchParams(searchParams);
+      const url = `${ENDPOINTS.CATALOG.PRODUCT_DETAIL(slug)}?${params.toString()}`;
       const res = await axiosInstance.get(url);
       setProduct(res.data?.results ? res.data.results[0] : res.data);
+      setActiveImageIndex(0); // Reset image index on variant change
     } catch (e) {
       setError(e?.response?.data?.detail || e.message || 'Failed to load product');
     } finally {
@@ -58,40 +60,18 @@ export default function ProductDetailsPage() {
     }
   };
 
+  useEffect(() => {
+    if (slug) fetchProduct();
+    // Re-fetch if searchParams change (color/size)
+  }, [slug, searchParams.toString()]);
+
   const productName = useMemo(() => {
     if (!product) return '';
     return product?.name || product?.title || product?.slug || '';
   }, [product]);
 
-  const variants = useMemo(() => {
-    if (!product?.variants || !Array.isArray(product.variants)) return [];
-    return product.variants;
-  }, [product]);
-
-  const variantSkuOptions = useMemo(() => {
-    const skus = variants.map((v) => v?.sku).filter(Boolean).filter((sku, idx, arr) => arr.indexOf(sku) === idx);
-    if (skus.length === 0 && product?.sku) return [product.sku];
-    return skus;
-  }, [variants, product?.sku]);
-
-  const inferredDefaultVariantSku = useMemo(() => {
-    if (!variantSkuOptions.length) return '';
-    if (variantSkuOptions.length === 1) return variantSkuOptions[0];
-    const first = variants?.[0]?.sku;
-    return first || variantSkuOptions[0] || '';
-  }, [variants, variantSkuOptions]);
-
-  useEffect(() => {
-    if (slug) fetchProduct();
-  }, [slug]);
-
-  useEffect(() => {
-    if (!product) return;
-    setSelectedVariantSku((prev) => {
-      if (prev) return prev;
-      return inferredDefaultVariantSku || (variantSkuOptions[0] ?? '') || '';
-    });
-  }, [product, inferredDefaultVariantSku, variantSkuOptions]);
+  const selectedVariant = product?.selected_variant || null;
+  const selectedVariantSku = selectedVariant?.sku || product?.sku || '';
 
   const fetchReviews = async () => {
     if (!productName) return;
@@ -177,7 +157,6 @@ export default function ProductDetailsPage() {
     setAddToCartError(null);
     setAddingToCart(true);
     try {
-      const selectedVariant = variants.find(v => v.sku === selectedVariantSku);
       await cartService.addItem(product.id, quantity, selectedVariant?.id || null);
       navigate('/cart');
     } catch (err) {
@@ -187,7 +166,13 @@ export default function ProductDetailsPage() {
     }
   };
 
-  if (loading) return <LoadingSpinner fullScreen />;
+  const updateParam = (key, value) => {
+    const params = new URLSearchParams(searchParams);
+    params.set(key, value);
+    setSearchParams(params);
+  };
+
+  if (loading && !product) return <LoadingSpinner fullScreen />;
 
   if (error) {
     return (
@@ -209,9 +194,13 @@ export default function ProductDetailsPage() {
     return `${BASE_URL}${path.startsWith('/') ? path : '/' + path}`;
   };
 
-  const productImages = product.images?.length > 0 
-    ? product.images.map(img => getFullUrl(img.image)) 
+  const productImages = product.resolved_images?.length > 0 
+    ? product.resolved_images.map(img => getFullUrl(img.image)) 
     : [getFullUrl(product.thumbnail)];
+
+  const displayPrice = selectedVariant?.price || product.effective_price;
+  const displayDiscountPrice = selectedVariant?.discount_price || product.effective_discount_price;
+  const isOutOfStock = selectedVariant ? selectedVariant.stock <= 0 : product.stock <= 0;
 
   return (
     <div className="bg-background min-h-screen pb-32">
@@ -233,17 +222,17 @@ export default function ProductDetailsPage() {
           {/* Left Column: Image Gallery (Magazine Style) */}
           <div className="w-full lg:w-[60%] flex flex-col md:flex-row-reverse gap-6">
             {/* Main Image */}
-            <div className="flex-1 bg-secondary rounded-3xl overflow-hidden relative group cursor-zoom-in aspect-[4/5] shadow-sm">
+            <div className={`flex-1 bg-secondary rounded-3xl overflow-hidden relative group aspect-[4/5] shadow-sm ${loading ? 'opacity-50' : ''}`}>
               <AnimatePresence mode="wait">
                 <motion.img
-                  key={activeImageIndex}
+                  key={productImages[activeImageIndex]}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.5 }}
                   src={productImages[activeImageIndex]}
                   alt={`${productName} view ${activeImageIndex + 1}`}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
+                  className="w-full h-full object-cover transition-transform duration-700 ease-out cursor-zoom-in"
                 />
               </AnimatePresence>
             </div>
@@ -280,39 +269,88 @@ export default function ProductDetailsPage() {
                 {productName}
               </h1>
               
-              <div className="flex items-center gap-4 mb-8">
-                <span className="text-3xl font-bold text-primary">${product.price}</span>
+              <div className="flex items-center gap-4 mb-4">
+                <span className="text-3xl font-bold text-primary">
+                  ${displayDiscountPrice || displayPrice}
+                </span>
+                {displayDiscountPrice && (
+                  <span className="text-xl text-muted line-through">${displayPrice}</span>
+                )}
                 <div className="flex items-center gap-1 bg-accent/10 px-3 py-1 rounded-full">
                   <Star className="w-4 h-4 text-accent fill-accent" />
                   <span className="text-sm font-bold text-accent">Premium Quality</span>
                 </div>
               </div>
+
+              {isOutOfStock ? (
+                <div className="text-red-600 font-medium mb-8 bg-red-50 p-3 rounded-lg inline-block border border-red-100">
+                  Currently Out of Stock
+                </div>
+              ) : (
+                <div className="text-green-600 font-medium mb-8">
+                  In Stock {selectedVariant && `- SKU: ${selectedVariant.sku}`}
+                </div>
+              )}
               
               <p className="text-lg text-muted font-light leading-relaxed mb-10">
                 {product.short_description || "Experience the pinnacle of luxury craftsmanship. Designed to elevate your everyday aesthetic."}
               </p>
 
-              {/* Variants */}
-              {variantSkuOptions.length > 1 && (
+              {/* Colors */}
+              {product.available_colors?.length > 0 && (
                 <div className="mb-8">
-                  <div className="flex justify-between items-center mb-4">
-                    <label className="text-sm font-bold tracking-widest uppercase text-primary">Select Variant</label>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {variantSkuOptions.map((sku) => {
-                      const isActive = selectedVariantSku === sku;
+                  <label className="text-sm font-bold tracking-widest uppercase text-primary block mb-4">Select Color</label>
+                  <div className="flex flex-wrap gap-4">
+                    {product.available_colors.map((c) => {
+                      const isActive = searchParams.get('color') === c.slug || (!searchParams.get('color') && selectedVariant?.color_slug === c.slug);
                       return (
                         <button
-                          key={sku}
-                          onClick={() => setSelectedVariantSku(sku)}
+                          key={c.id}
+                          onClick={() => updateParam('color', c.slug)}
                           className={cn(
-                            "py-3 px-4 rounded-xl border text-sm font-medium transition-all duration-200",
+                            "group flex flex-col items-center gap-2",
+                            isActive ? "opacity-100" : "opacity-60 hover:opacity-100 transition-opacity"
+                          )}
+                        >
+                          <div className={cn(
+                            "w-12 h-12 rounded-full border-2 overflow-hidden",
+                            isActive ? "border-primary p-0.5" : "border-transparent"
+                          )}>
+                            {c.image ? (
+                               <img src={c.image} alt={c.name} className="w-full h-full object-cover rounded-full" />
+                            ) : (
+                               <div className="w-full h-full rounded-full bg-neutral-200"></div>
+                            )}
+                          </div>
+                          <span className={cn("text-xs font-medium", isActive ? "text-primary" : "text-muted")}>
+                            {c.name}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Sizes */}
+              {product.available_sizes?.length > 0 && (
+                <div className="mb-8">
+                  <label className="text-sm font-bold tracking-widest uppercase text-primary block mb-4">Select Size</label>
+                  <div className="flex flex-wrap gap-3">
+                    {product.available_sizes.map((s) => {
+                      const isActive = searchParams.get('size') === s.slug || (!searchParams.get('size') && selectedVariant?.size_slug === s.slug);
+                      return (
+                        <button
+                          key={s.id}
+                          onClick={() => updateParam('size', s.slug)}
+                          className={cn(
+                            "min-w-[3rem] h-12 px-4 rounded-xl border text-sm font-bold transition-all duration-200",
                             isActive 
                               ? "border-primary bg-primary text-white shadow-md" 
                               : "border-border bg-white text-primary hover:border-primary"
                           )}
                         >
-                          {sku}
+                          {s.name}
                         </button>
                       );
                     })}
@@ -346,11 +384,12 @@ export default function ProductDetailsPage() {
               <Button 
                 variant="primary" 
                 size="lg" 
+                disabled={isOutOfStock}
                 className="w-full h-16 text-lg uppercase tracking-widest mb-6 shadow-xl shadow-primary/20 hover:shadow-primary/30"
                 onClick={handleAddToCart}
                 isLoading={addingToCart}
               >
-                <ShoppingBag className="w-5 h-5 mr-2" /> Add to Cart
+                <ShoppingBag className="w-5 h-5 mr-2" /> {isOutOfStock ? "Out of Stock" : "Add to Cart"}
               </Button>
 
               {/* Trust Badges */}

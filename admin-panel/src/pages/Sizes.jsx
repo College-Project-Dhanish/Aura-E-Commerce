@@ -7,7 +7,7 @@ const Sizes = () => {
   const [sizes, setSizes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setModalOpen] = useState(false);
-  const [formData, setFormData] = useState({ name: '', slug: '' });
+  const [formData, setFormData] = useState({ name: '', slug: '', is_active: true });
 
   const fetchSizes = async () => {
     try {
@@ -50,7 +50,7 @@ const Sizes = () => {
   };
 
   const openModal = () => {
-    setFormData({ name: '', slug: '' });
+    setFormData({ name: '', slug: '', is_active: true });
     setModalOpen(true);
   };
 
@@ -77,20 +77,26 @@ const Sizes = () => {
               <th className="px-6 py-3 font-medium">ID</th>
               <th className="px-6 py-3 font-medium">Name</th>
               <th className="px-6 py-3 font-medium">Slug</th>
+              <th className="px-6 py-3 font-medium">Active</th>
               <th className="px-6 py-3 font-medium text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
             {loading ? (
-              <tr><td colSpan="4" className="px-6 py-4 text-center">Loading...</td></tr>
+              <tr><td colSpan="5" className="px-6 py-4 text-center">Loading...</td></tr>
             ) : sizes.length === 0 ? (
-              <tr><td colSpan="4" className="px-6 py-4 text-center">No sizes found.</td></tr>
+              <tr><td colSpan="5" className="px-6 py-4 text-center">No sizes found.</td></tr>
             ) : (
               sizes.map(size => (
                 <tr key={size.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50">
                   <td className="px-6 py-3 text-neutral-500">{size.id}</td>
                   <td className="px-6 py-3 font-medium text-neutral-900 dark:text-neutral-100">{size.name}</td>
                   <td className="px-6 py-3 text-neutral-500">{size.slug}</td>
+                  <td className="px-6 py-3">
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${size.is_active ? 'bg-green-100 text-green-800' : 'bg-neutral-100 text-neutral-800'}`}>
+                      {size.is_active ? "Yes" : "No"}
+                    </span>
+                  </td>
                   <td className="px-6 py-3 flex items-center justify-end gap-3">
                     <button onClick={() => handleDelete(size.id)} className="text-neutral-400 hover:text-red-600 transition-colors">
                       <Trash2 size={16} />
@@ -125,6 +131,16 @@ const Sizes = () => {
                   value={formData.slug}
                   onChange={(e) => setFormData({...formData, slug: e.target.value})}
                 />
+              </div>
+              <div className="flex items-center gap-2">
+                <input 
+                  type="checkbox"
+                  id="is_active"
+                  className="w-4 h-4 border-neutral-300 rounded text-neutral-900 focus:ring-neutral-900"
+                  checked={formData.is_active}
+                  onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
+                />
+                <label htmlFor="is_active" className="text-sm font-medium">Active</label>
               </div>
               <div className="flex justify-end gap-3 mt-6">
                 <button 

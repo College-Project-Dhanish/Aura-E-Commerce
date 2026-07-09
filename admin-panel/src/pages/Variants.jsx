@@ -15,6 +15,7 @@ const Variants = () => {
     product: '', color: '', size: '', sku: '',
     stock: 0, price_override: '', discount_price_override: ''
   });
+  const [images, setImages] = useState([]);
 
   const fetchData = async () => {
     try {
@@ -47,12 +48,38 @@ const Variants = () => {
       if (!payload.price_override) payload.price_override = null;
       if (!payload.discount_price_override) payload.discount_price_override = null;
       
-      await axiosInstance.post('/catalog/admin/variants/', payload);
+      const res = await axiosInstance.post('/catalog/admin/variants/', payload);
+      const newVariantId = res.data.id;
+
+      if (images && images.length > 0) {
+        for (let i = 0; i < images.length; i++) {
+          const imgPayload = new FormData();
+          imgPayload.append('variant', newVariantId);
+          imgPayload.append('image', images[i]);
+          imgPayload.append('sort_order', i);
+          await axiosInstance.post('/catalog/admin/variant-images/', imgPayload, {
+             headers: { 'Content-Type': 'multipart/form-data' }
+          });
+        }
+      }
+
       setIsModalOpen(false);
+      setImages([]);
       fetchData();
     } catch (error) {
       console.error("Failed to save", error);
-      alert("Failed to save variant");
+      if (error.response && error.response.status === 400) {
+         const data = error.response.data;
+         if (data && data.non_field_errors) {
+            alert(data.non_field_errors[0]);
+         } else if (Array.isArray(data) && typeof data[0] === 'string') {
+            alert(data[0]);
+         } else {
+            alert(JSON.stringify(data));
+         }
+      } else {
+         alert("Failed to save variant");
+      }
     }
   };
 
@@ -67,6 +94,15 @@ const Variants = () => {
     }
   };
 
+  const openModal = () => {
+    setFormData({
+      product: '', color: '', size: '', sku: '',
+      stock: 0, price_override: '', discount_price_override: ''
+    });
+    setImages([]);
+    setIsModalOpen(true);
+  };
+
   return (
     <div>
       <AdminPageHeader 
@@ -75,7 +111,7 @@ const Variants = () => {
         icon={Layers} 
         actionButton={
           <button 
-            onClick={() => setIsModalOpen(true)}
+            onClick={openModal}
             className="flex items-center gap-2 bg-neutral-900 text-white px-4 py-2 text-sm font-medium hover:bg-neutral-800 transition-colors"
           >
             <Plus size={16} /> Add Variant
@@ -122,7 +158,7 @@ const Variants = () => {
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg border border-neutral-900 bg-white p-6 shadow-[4px_4px_0_0_#171717] dark:bg-neutral-900 dark:border-neutral-700 dark:shadow-[4px_4px_0_0_#404040]">
+          <div className="w-full max-w-lg border border-neutral-900 bg-white p-6 shadow-[4px_4px_0_0_#171717] dark:bg-neutral-900 dark:border-neutral-700 dark:shadow-[4px_4px_0_0_#404040] max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-bold mb-4">Add Variant</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -158,6 +194,27 @@ const Variants = () => {
                   <input required type="number" min="0" className="w-full border border-neutral-300 p-2 text-sm focus:border-neutral-900 focus:outline-none dark:bg-neutral-800 dark:border-neutral-700" value={formData.stock} onChange={(e) => setFormData({...formData, stock: e.target.value})} />
                 </div>
               </div>
+
+              <div className="border-t border-neutral-200 dark:border-neutral-700 pt-4 mt-4">
+                <label className="block text-sm font-medium mb-1">Variant Images (Optional)</label>
+                <input 
+                  type="file" 
+                  multiple 
+                  accept="image/*"
+                  className="w-full border border-neutral-300 p-2 text-sm dark:bg-neutral-800 dark:border-neutral-700"
+                  onChange={(e) => setImages(e.target.files)}
+                />
+                {!images || images.length === 0 ? (
+                  <p className="text-xs text-neutral-500 mt-2 italic">
+                    * Default product images will be used if variant images are not provided.
+                  </p>
+                ) : (
+                  <p className="text-xs text-green-600 mt-2 font-medium">
+                    {images.length} image(s) selected.
+                  </p>
+                )}
+              </div>
+
               <div className="flex justify-end gap-3 mt-6">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm text-neutral-600 hover:text-neutral-900 dark:text-neutral-400">Cancel</button>
                 <button type="submit" className="bg-neutral-900 text-white px-4 py-2 text-sm font-medium hover:bg-neutral-800 dark:bg-white dark:text-neutral-900">Save</button>

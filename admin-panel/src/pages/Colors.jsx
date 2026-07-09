@@ -9,7 +9,7 @@ const Colors = () => {
   const [isModalOpen, setModalOpen] = useState(false);
   const [file, setFile] = useState(null);
   
-  const [formData, setFormData] = useState({ name: '', slug: '' });
+  const [formData, setFormData] = useState({ name: '', slug: '', is_active: true });
 
   const fetchColors = async () => {
     try {
@@ -33,13 +33,14 @@ const Colors = () => {
     payload.append('name', formData.name);
     if (formData.slug) payload.append('slug', formData.slug);
     if (file) payload.append('image', file);
+    payload.append('is_active', formData.is_active);
 
     try {
       await axiosInstance.post('/catalog/admin/colors/', payload, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       setModalOpen(false);
-      setFormData({ name: '', slug: '' });
+      setFormData({ name: '', slug: '', is_active: true });
       setFile(null);
       fetchColors();
     } catch (error) {
@@ -61,7 +62,7 @@ const Colors = () => {
   };
 
   const openModal = () => {
-    setFormData({ name: '', slug: '' });
+    setFormData({ name: '', slug: '', is_active: true });
     setFile(null);
     setModalOpen(true);
   };
@@ -90,14 +91,15 @@ const Colors = () => {
               <th className="px-6 py-3 font-medium">ID</th>
               <th className="px-6 py-3 font-medium">Name</th>
               <th className="px-6 py-3 font-medium">Slug</th>
+              <th className="px-6 py-3 font-medium">Active</th>
               <th className="px-6 py-3 font-medium text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-200 dark:divide-neutral-800">
             {loading ? (
-              <tr><td colSpan="5" className="px-6 py-4 text-center">Loading...</td></tr>
+              <tr><td colSpan="6" className="px-6 py-4 text-center">Loading...</td></tr>
             ) : colors.length === 0 ? (
-              <tr><td colSpan="5" className="px-6 py-4 text-center">No colors found.</td></tr>
+              <tr><td colSpan="6" className="px-6 py-4 text-center">No colors found.</td></tr>
             ) : (
               colors.map(color => (
                 <tr key={color.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800/50">
@@ -111,6 +113,11 @@ const Colors = () => {
                   <td className="px-6 py-3 text-neutral-500">{color.id}</td>
                   <td className="px-6 py-3 font-medium text-neutral-900 dark:text-neutral-100">{color.name}</td>
                   <td className="px-6 py-3 text-neutral-500">{color.slug}</td>
+                  <td className="px-6 py-3">
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${color.is_active ? 'bg-green-100 text-green-800' : 'bg-neutral-100 text-neutral-800'}`}>
+                      {color.is_active ? "Yes" : "No"}
+                    </span>
+                  </td>
                   <td className="px-6 py-3 flex items-center justify-end gap-3">
                     <button onClick={() => handleDelete(color.id)} className="text-neutral-400 hover:text-red-600 transition-colors">
                       <Trash2 size={16} />
@@ -155,6 +162,16 @@ const Colors = () => {
                   onChange={(e) => setFile(e.target.files[0])}
                 />
                 <p className="text-xs text-neutral-500 mt-1">Upload a small circular image/swatch to represent the color.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <input 
+                  type="checkbox"
+                  id="is_active"
+                  className="w-4 h-4 border-neutral-300 rounded text-neutral-900 focus:ring-neutral-900"
+                  checked={formData.is_active}
+                  onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
+                />
+                <label htmlFor="is_active" className="text-sm font-medium">Active</label>
               </div>
               <div className="flex justify-end gap-3 mt-6">
                 <button 

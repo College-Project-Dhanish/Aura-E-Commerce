@@ -14,6 +14,7 @@ from .views import (
     ProductVariantAdminCrudView,
     SizeAdminCrudView,
     SizeListView,
+    VariantImageAdminCrudView,
 )
 
 urlpatterns = [
@@ -50,5 +51,11 @@ urlpatterns = [
         "admin/images/<int:obj_id>/",
         ProductImageAdminCrudView.as_view(),
         name="catalog-admin-image-detail",
+    ),
+    path("admin/variant-images/", VariantImageAdminCrudView.as_view(), name="catalog-admin-variant-images"),
+    path(
+        "admin/variant-images/<int:obj_id>/",
+        VariantImageAdminCrudView.as_view(),
+        name="catalog-admin-variant-image-detail",
     ),
 ]

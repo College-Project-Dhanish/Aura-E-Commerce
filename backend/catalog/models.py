@@ -98,6 +98,7 @@ class Color(models.Model):
     name = models.CharField(max_length=100)
     slug = models.SlugField(max_length=120, unique=True)
     image = models.ImageField(upload_to='colors/images/', null=True, blank=True)
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         indexes = [
@@ -116,6 +117,7 @@ class Color(models.Model):
 class Size(models.Model):
     name = models.CharField(max_length=50)
     slug = models.SlugField(max_length=80, unique=True)
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         indexes = [
@@ -153,6 +155,15 @@ class ProductVariant(models.Model):
 
     def __str__(self):
         return f'{self.product.name} - {self.color.name} - {self.size.name}'
+
+
+class VariantImage(models.Model):
+    variant = models.ForeignKey(ProductVariant, on_delete=models.CASCADE, related_name='images')
+    image = models.ImageField(upload_to='variants/images/')
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['sort_order', 'id']
 
 
 # Helper method for display in admin / API
