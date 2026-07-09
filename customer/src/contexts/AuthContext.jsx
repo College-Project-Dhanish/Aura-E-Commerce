@@ -50,8 +50,18 @@ export const AuthProvider = ({ children }) => {
     return true;
   };
 
+  const updateProfile = async (formData) => {
+    const res = await axiosInstance.patch('/auth/profile/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    setUser(res.data);
+    return res.data;
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, updateProfile, loading }}>
       {loading ? null : children}
     </AuthContext.Provider>
   );
