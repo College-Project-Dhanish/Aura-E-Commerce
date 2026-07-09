@@ -196,6 +196,7 @@ class ProductListSerializer(serializers.ModelSerializer):
     effective_discount_price = serializers.SerializerMethodField()
 
     variants = ProductVariantSerializer(many=True, read_only=True)
+    images = ProductImageSerializer(many=True, read_only=True)
 
     class Meta:
         model = Product
@@ -208,6 +209,7 @@ class ProductListSerializer(serializers.ModelSerializer):
             "price",
             "discount_price",
             "thumbnail",
+            "images",
             "featured",
             "best_seller",
             "new_arrival",

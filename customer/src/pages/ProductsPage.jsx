@@ -230,7 +230,18 @@ export default function ProductsPage() {
               {products.map((p) => {
                 const slug = p.slug || p.id;
                 const name = p.name || p.title || `Product ${slug}`;
-                const imageUrl = p.images?.[0]?.image || 'https://via.placeholder.com/400x500?text=No+Image';
+                let imagePath = p.thumbnail || p.images?.[0]?.image;
+                
+                let imageUrl = 'https://via.placeholder.com/400x500?text=No+Image';
+                if (imagePath) {
+                  if (imagePath.startsWith('http')) {
+                    imageUrl = imagePath;
+                  } else {
+                    const API_URL = (import.meta.env?.VITE_API_BASE_URL) || 'http://127.0.0.1:8000/api';
+                    const BASE_URL = API_URL.replace('/api', '').replace(/\/$/, '');
+                    imageUrl = `${BASE_URL}${imagePath.startsWith('/') ? imagePath : '/' + imagePath}`;
+                  }
+                }
                 
                 return (
                   <Link to={`/products/${slug}`} key={p.id || slug} style={{ display: 'block' }}>
@@ -245,7 +256,7 @@ export default function ProductsPage() {
                       <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
                         <h3 style={{ fontSize: '1.125rem', margin: '0 0 0.5rem 0', fontWeight: 600, color: 'var(--text-primary)' }}>{name}</h3>
                         <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '1.125rem', fontWeight: 700 }}>${p.price}</span>
+                          <span style={{ fontSize: '1.125rem', fontWeight: 700 }}>${p.effective_price || p.price}</span>
                           <span style={{ color: 'var(--accent-color)', fontSize: '0.875rem', fontWeight: 500 }}>View Details</span>
                         </div>
                       </div>

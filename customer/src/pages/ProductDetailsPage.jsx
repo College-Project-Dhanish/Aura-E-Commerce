@@ -181,7 +181,20 @@ export default function ProductDetailsPage() {
         {/* Product Images */}
         <div style={{ backgroundColor: 'var(--bg-color)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px', overflow: 'hidden' }}>
            {product.images && product.images.length > 0 ? (
-            <img src={product.images[0].image} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+             (() => {
+                let imagePath = product.images[0].image;
+                let imageUrl = 'https://via.placeholder.com/600x600?text=No+Image';
+                if (imagePath) {
+                  if (imagePath.startsWith('http')) {
+                    imageUrl = imagePath;
+                  } else {
+                    const API_URL = (import.meta.env?.VITE_API_BASE_URL) || 'http://127.0.0.1:8000/api';
+                    const BASE_URL = API_URL.replace('/api', '').replace(/\/$/, '');
+                    imageUrl = `${BASE_URL}${imagePath.startsWith('/') ? imagePath : '/' + imagePath}`;
+                  }
+                }
+                return <img src={imageUrl} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />;
+             })()
           ) : (
             <span style={{ color: 'var(--text-muted)' }}>No Image Available</span>
           )}
