@@ -1,0 +1,6 @@
+{
+  "name": "Premium Fashion D2C Store",
+  "description": "A luxury, minimalist D2C fashion clothing brand specializing in premium Shirts and T-Shirts. Features interactive filters, rich animations, dark mode, shopping cart, wishlist, checkout flow, and custom API service layer.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
