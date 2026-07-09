@@ -3,6 +3,7 @@ import { Routes, Route } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx';
 import Layout from './components/layout/Layout.jsx';
 
+import HomePage from './pages/HomePage.jsx';
 import ProductsPage from './pages/ProductsPage.jsx';
 import ProductDetailsPage from './pages/ProductDetailsPage.jsx';
 import LoginPage from './pages/LoginPage.jsx';
@@ -26,7 +27,8 @@ function RequireAuth({ children }) {
 function CustomerAppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<ProductsPage />} />
+      <Route path="/" element={<HomePage />} />
+      <Route path="/products" element={<ProductsPage />} />
       <Route path="/products/:slug" element={<ProductDetailsPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />

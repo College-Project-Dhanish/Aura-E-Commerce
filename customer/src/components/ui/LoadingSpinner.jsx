@@ -1,40 +1,29 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 
-export default function LoadingSpinner({ size = '2rem', color = 'var(--accent-color)', fullScreen = false }) {
-  const spinnerStyle = {
-    width: size,
-    height: size,
-    border: `3px solid ${color}40`, // 40 is hex for 25% opacity
-    borderBottomColor: color,
-    borderRadius: '50%',
-    display: 'inline-block',
-    animation: 'rotation 1s linear infinite'
-  };
+export default function LoadingSpinner({ size = '2.5rem', fullScreen = false }) {
+  const content = (
+    <div className="flex flex-col items-center justify-center gap-4">
+      <motion.div
+        className="rounded-full border-[3px] border-accent/20 border-t-accent"
+        style={{ width: size, height: size }}
+        animate={{ rotate: 360 }}
+        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+      />
+    </div>
+  );
 
-  const wrapperStyle = fullScreen ? {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: '100vh',
-    width: '100%'
-  } : {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '2rem'
-  };
+  if (fullScreen) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+        {content}
+      </div>
+    );
+  }
 
   return (
-    <div style={wrapperStyle}>
-      <span style={spinnerStyle}></span>
-      <style>
-        {`
-          @keyframes rotation {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        `}
-      </style>
+    <div className="flex items-center justify-center p-8 w-full">
+      {content}
     </div>
   );
 }

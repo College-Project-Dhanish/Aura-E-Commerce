@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, Star, ShoppingBag, Truck, RotateCcw, ShieldCheck, ChevronDown, Plus, Minus } from 'lucide-react';
 import axiosInstance from '../api/axiosInstance';
 import { ENDPOINTS } from '../services/endpoints';
 import { useAuth } from '../contexts/AuthContext';
@@ -8,6 +10,12 @@ import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import ErrorAlert from '../components/ui/ErrorAlert';
+import { clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs) {
+  return twMerge(clsx(inputs));
+}
 
 export default function ProductDetailsPage() {
   const { slug } = useParams();
@@ -31,6 +39,10 @@ export default function ProductDetailsPage() {
   
   const [addingToCart, setAddingToCart] = useState(false);
   const [addToCartError, setAddToCartError] = useState(null);
+
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [quantity, setQuantity] = useState(1);
+  const [activeTab, setActiveTab] = useState('description');
 
   const fetchProduct = async () => {
     try {
@@ -166,7 +178,7 @@ export default function ProductDetailsPage() {
     setAddingToCart(true);
     try {
       const selectedVariant = variants.find(v => v.sku === selectedVariantSku);
-      await cartService.addItem(product.id, 1, selectedVariant?.id || null);
+      await cartService.addItem(product.id, quantity, selectedVariant?.id || null);
       navigate('/cart');
     } catch (err) {
       setAddToCartError('Failed to add to cart.');
@@ -179,217 +191,362 @@ export default function ProductDetailsPage() {
 
   if (error) {
     return (
-      <div className="container" style={{ padding: '2rem 16px' }}>
+      <div className="max-w-7xl mx-auto px-6 py-20">
         <ErrorAlert message={error} />
-        <Link to="/"><Button variant="secondary">Go Back</Button></Link>
+        <Link to="/products"><Button variant="outline" className="mt-4">Go Back</Button></Link>
       </div>
     );
   }
 
   if (!product) return null;
 
+  // Process Images
+  const getFullUrl = (path) => {
+    if (!path) return 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?q=80&w=800&auto=format&fit=crop';
+    if (path.startsWith('http')) return path;
+    const API_URL = (import.meta.env?.VITE_API_BASE_URL) || 'http://127.0.0.1:8000/api';
+    const BASE_URL = API_URL.replace('/api', '').replace(/\/$/, '');
+    return `${BASE_URL}${path.startsWith('/') ? path : '/' + path}`;
+  };
+
+  const productImages = product.images?.length > 0 
+    ? product.images.map(img => getFullUrl(img.image)) 
+    : [getFullUrl(product.thumbnail)];
+
   return (
-    <div className="container" style={{ padding: '2rem 16px' }}>
-      <div style={{ marginBottom: '2rem' }}>
-        <Link to="/" style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>← Back to Catalog</Link>
+    <div className="bg-background min-h-screen pb-32">
+      
+      {/* Breadcrumb */}
+      <div className="border-b border-border bg-white/50 backdrop-blur-md sticky top-[80px] z-40">
+        <div className="max-w-[1440px] mx-auto px-6 py-4 flex items-center gap-4 text-sm font-medium">
+          <Link to="/products" className="text-muted hover:text-primary transition-colors flex items-center gap-2">
+            <ArrowLeft className="w-4 h-4" /> Back to Catalog
+          </Link>
+          <span className="text-border">/</span>
+          <span className="text-primary truncate">{productName}</span>
+        </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '3rem', marginBottom: '4rem' }}>
-        {/* Product Images */}
-        <div style={{ backgroundColor: 'var(--bg-color)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '400px', overflow: 'hidden' }}>
-           {product.images && product.images.length > 0 ? (
-             (() => {
-                let imagePath = product.images[0].image;
-                let imageUrl = 'https://via.placeholder.com/600x600?text=No+Image';
-                if (imagePath) {
-                  if (imagePath.startsWith('http')) {
-                    imageUrl = imagePath;
-                  } else {
-                    const API_URL = (import.meta.env?.VITE_API_BASE_URL) || 'http://127.0.0.1:8000/api';
-                    const BASE_URL = API_URL.replace('/api', '').replace(/\/$/, '');
-                    imageUrl = `${BASE_URL}${imagePath.startsWith('/') ? imagePath : '/' + imagePath}`;
-                  }
-                }
-                return <img src={imageUrl} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />;
-             })()
-          ) : (
-            <span style={{ color: 'var(--text-muted)' }}>No Image Available</span>
-          )}
-        </div>
-
-        {/* Product Info */}
-        <div>
-          <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>{productName}</h1>
-          <p style={{ fontSize: '1.5rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '1.5rem' }}>
-            ${product.price}
-          </p>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', lineHeight: 1.6 }}>
-            {product.description || 'No description available for this product.'}
-          </p>
-
-          <ErrorAlert message={addToCartError} />
-
-          {variantSkuOptions.length > 1 && (
-            <div style={{ marginBottom: '2rem' }}>
-              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem' }}>Variant</label>
-              <select
-                value={selectedVariantSku}
-                onChange={(e) => setSelectedVariantSku(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: 'var(--radius-md)',
-                  fontFamily: 'inherit',
-                  fontSize: '1rem'
-                }}
-              >
-                {variantSkuOptions.map((sku) => (
-                  <option key={sku} value={sku}>{sku}</option>
-                ))}
-              </select>
+      <div className="max-w-[1440px] mx-auto px-6 pt-12">
+        <div className="flex flex-col lg:flex-row gap-16 xl:gap-24 items-start relative">
+          
+          {/* Left Column: Image Gallery (Magazine Style) */}
+          <div className="w-full lg:w-[60%] flex flex-col md:flex-row-reverse gap-6">
+            {/* Main Image */}
+            <div className="flex-1 bg-secondary rounded-3xl overflow-hidden relative group cursor-zoom-in aspect-[4/5] shadow-sm">
+              <AnimatePresence mode="wait">
+                <motion.img
+                  key={activeImageIndex}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.5 }}
+                  src={productImages[activeImageIndex]}
+                  alt={`${productName} view ${activeImageIndex + 1}`}
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
+                />
+              </AnimatePresence>
             </div>
-          )}
-
-          <Button 
-            variant="primary" 
-            size="lg" 
-            style={{ width: '100%' }} 
-            onClick={handleAddToCart}
-            isLoading={addingToCart}
-          >
-            Add to Cart
-          </Button>
-        </div>
-      </div>
-
-      <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', marginBottom: '3rem' }} />
-
-      {/* Reviews Section */}
-      <div>
-        <h2 style={{ fontSize: '1.5rem', marginBottom: '1.5rem' }}>Customer Reviews</h2>
-        
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '3rem' }}>
-          <div>
-            {reviewsLoading && <LoadingSpinner />}
-            {reviewsError && <ErrorAlert message={reviewsError} />}
             
-            {!reviewsLoading && !reviewsError && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                {reviews.length === 0 && <p style={{ color: 'var(--text-muted)' }}>No reviews yet.</p>}
-                {reviews.map((r) => {
-                  let avatarUrl = null;
-                  if (r.user_profile_image) {
-                    if (r.user_profile_image.startsWith('http')) {
-                      avatarUrl = r.user_profile_image;
-                    } else {
-                      const API_URL = import.meta.env?.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api';
-                      const BASE_URL = API_URL.replace('/api', '').replace(/\/$/, '');
-                      avatarUrl = `${BASE_URL}${r.user_profile_image.startsWith('/') ? r.user_profile_image : '/' + r.user_profile_image}`;
-                    }
-                  }
-                  
-                  return (
-                    <Card key={r.id}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                          {avatarUrl ? (
-                            <img 
-                              src={avatarUrl} 
-                              alt={r.user_display} 
-                              style={{ width: '36px', height: '36px', borderRadius: '50%', objectFit: 'cover' }} 
-                            />
-                          ) : (
-                            <div style={{ width: '36px', height: '36px', borderRadius: '50%', backgroundColor: 'var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
-                              {(r.user_display && r.user_display !== 'Anonymous') ? r.user_display.charAt(0).toUpperCase() : 'A'}
-                            </div>
-                          )}
-                          <div style={{ fontWeight: 600 }}>{r.user_display || 'Customer'}</div>
-                        </div>
-                        <div style={{ display: 'flex', color: '#fbbf24', alignItems: 'center' }}>
-                          {'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}
-                        </div>
-                      </div>
-                      <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: '0.75rem' }}>
-                        Variant: {r.variant_sku} · {r.created_at ? new Date(r.created_at).toLocaleDateString() : ''}
-                      </div>
-                      <p style={{ margin: 0, fontSize: '0.9375rem', whiteSpace: 'pre-wrap' }}>{r.comment}</p>
-                    </Card>
-                  );
-                })}
+            {/* Thumbnails */}
+            {productImages.length > 1 && (
+              <div className="flex md:flex-col gap-4 overflow-x-auto md:overflow-y-auto md:w-24 custom-scrollbar flex-shrink-0">
+                {productImages.map((img, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setActiveImageIndex(idx)}
+                    className={cn(
+                      "w-20 md:w-full aspect-[4/5] rounded-xl overflow-hidden border-2 transition-all duration-300 relative",
+                      activeImageIndex === idx ? "border-primary shadow-md" : "border-transparent opacity-60 hover:opacity-100"
+                    )}
+                  >
+                    <img src={img} alt="" className="w-full h-full object-cover" />
+                    {activeImageIndex === idx && <div className="absolute inset-0 bg-primary/5"></div>}
+                  </button>
+                ))}
               </div>
             )}
           </div>
 
-          <div>
-            <Card>
-              <h3 style={{ fontSize: '1.25rem', marginBottom: '1rem' }}>Write a Review</h3>
-              {!user ? (
-                <p style={{ color: 'var(--text-muted)' }}>
-                  Please <Link to="/login" style={{ color: 'var(--accent-color)', fontWeight: 500 }}>login</Link> to post a review.
-                </p>
-              ) : (
-                <form onSubmit={handleSubmitReview}>
-                  <div style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem' }}>Rating</label>
-                    <select
-                      value={reviewRating}
-                      onChange={(e) => setReviewRating(parseInt(e.target.value, 10))}
-                      style={{
-                        width: '100%',
-                        padding: '0.75rem',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: 'var(--radius-md)',
-                        fontFamily: 'inherit',
-                        fontSize: '1rem'
-                      }}
-                    >
-                      {[5, 4, 3, 2, 1].map((n) => (
-                        <option key={n} value={n}>{n} Star{n !== 1 && 's'}</option>
-                      ))}
-                    </select>
-                  </div>
+          {/* Right Column: Sticky Purchase Section */}
+          <div className="w-full lg:w-[40%] lg:sticky lg:top-[160px]">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="flex flex-col"
+            >
+              <h1 className="text-4xl lg:text-5xl font-bold tracking-tighter text-primary mb-2 leading-tight">
+                {productName}
+              </h1>
+              
+              <div className="flex items-center gap-4 mb-8">
+                <span className="text-3xl font-bold text-primary">${product.price}</span>
+                <div className="flex items-center gap-1 bg-accent/10 px-3 py-1 rounded-full">
+                  <Star className="w-4 h-4 text-accent fill-accent" />
+                  <span className="text-sm font-bold text-accent">Premium Quality</span>
+                </div>
+              </div>
+              
+              <p className="text-lg text-muted font-light leading-relaxed mb-10">
+                {product.short_description || "Experience the pinnacle of luxury craftsmanship. Designed to elevate your everyday aesthetic."}
+              </p>
 
-                  <div style={{ marginBottom: '1rem' }}>
-                    <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem' }}>Review</label>
-                    <textarea
-                      value={reviewComment}
-                      onChange={(e) => setReviewComment(e.target.value)}
-                      required
-                      maxLength={5000}
-                      rows={4}
-                      style={{
-                        width: '100%',
-                        padding: '0.75rem',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: 'var(--radius-md)',
-                        fontFamily: 'inherit',
-                        fontSize: '1rem',
-                        resize: 'vertical'
-                      }}
-                      placeholder="Share your thoughts..."
-                    />
+              {/* Variants */}
+              {variantSkuOptions.length > 1 && (
+                <div className="mb-8">
+                  <div className="flex justify-between items-center mb-4">
+                    <label className="text-sm font-bold tracking-widest uppercase text-primary">Select Variant</label>
                   </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {variantSkuOptions.map((sku) => {
+                      const isActive = selectedVariantSku === sku;
+                      return (
+                        <button
+                          key={sku}
+                          onClick={() => setSelectedVariantSku(sku)}
+                          className={cn(
+                            "py-3 px-4 rounded-xl border text-sm font-medium transition-all duration-200",
+                            isActive 
+                              ? "border-primary bg-primary text-white shadow-md" 
+                              : "border-border bg-white text-primary hover:border-primary"
+                          )}
+                        >
+                          {sku}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
-                  <ErrorAlert message={postReviewError} />
-                  {postReviewSuccess && (
-                    <div style={{ color: 'var(--success-color)', fontSize: '0.875rem', marginBottom: '1rem' }}>
-                      {postReviewSuccess}
+              {/* Quantity */}
+              <div className="mb-10">
+                <label className="text-sm font-bold tracking-widest uppercase text-primary mb-4 block">Quantity</label>
+                <div className="flex items-center w-32 bg-secondary rounded-full border border-border p-1">
+                  <button 
+                    onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                    className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white hover:shadow-sm transition-all text-primary"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+                  <span className="flex-1 text-center font-bold text-primary">{quantity}</span>
+                  <button 
+                    onClick={() => setQuantity(q => q + 1)}
+                    className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white hover:shadow-sm transition-all text-primary"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              <ErrorAlert message={addToCartError} className="mb-6" />
+
+              {/* Add to Cart CTA */}
+              <Button 
+                variant="primary" 
+                size="lg" 
+                className="w-full h-16 text-lg uppercase tracking-widest mb-6 shadow-xl shadow-primary/20 hover:shadow-primary/30"
+                onClick={handleAddToCart}
+                isLoading={addingToCart}
+              >
+                <ShoppingBag className="w-5 h-5 mr-2" /> Add to Cart
+              </Button>
+
+              {/* Trust Badges */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 border-t border-border pt-8 mt-4">
+                <div className="flex flex-col items-center justify-center text-center gap-2 p-4 bg-secondary rounded-2xl">
+                  <Truck className="w-6 h-6 text-primary" />
+                  <span className="text-xs font-bold text-primary">Free Shipping</span>
+                </div>
+                <div className="flex flex-col items-center justify-center text-center gap-2 p-4 bg-secondary rounded-2xl">
+                  <RotateCcw className="w-6 h-6 text-primary" />
+                  <span className="text-xs font-bold text-primary">30-Day Returns</span>
+                </div>
+                <div className="flex flex-col items-center justify-center text-center gap-2 p-4 bg-secondary rounded-2xl">
+                  <ShieldCheck className="w-6 h-6 text-primary" />
+                  <span className="text-xs font-bold text-primary">Secure Checkout</span>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+
+        {/* Elegant Tabs (Description vs Reviews) */}
+        <div className="mt-32 max-w-4xl mx-auto">
+          <div className="flex justify-center border-b border-border mb-12">
+            <button 
+              onClick={() => setActiveTab('description')}
+              className={cn(
+                "pb-4 px-8 text-sm font-bold tracking-[0.2em] uppercase transition-colors relative",
+                activeTab === 'description' ? "text-primary" : "text-muted hover:text-primary"
+              )}
+            >
+              Details
+              {activeTab === 'description' && (
+                <motion.div layoutId="tab-indicator" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+              )}
+            </button>
+            <button 
+              onClick={() => setActiveTab('reviews')}
+              className={cn(
+                "pb-4 px-8 text-sm font-bold tracking-[0.2em] uppercase transition-colors relative",
+                activeTab === 'reviews' ? "text-primary" : "text-muted hover:text-primary"
+              )}
+            >
+              Reviews ({reviews.length})
+              {activeTab === 'reviews' && (
+                <motion.div layoutId="tab-indicator" className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+              )}
+            </button>
+          </div>
+
+          <AnimatePresence mode="wait">
+            {activeTab === 'description' && (
+              <motion.div 
+                key="desc"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.3 }}
+                className="prose prose-lg text-muted font-light leading-loose max-w-none text-center"
+              >
+                {product.description ? (
+                  <p>{product.description}</p>
+                ) : (
+                  <p>Meticulously crafted from the finest materials, this piece embodies the essence of modern luxury. Each detail is thoughtfully designed to provide both exceptional comfort and a striking aesthetic silhouette.</p>
+                )}
+              </motion.div>
+            )}
+
+            {activeTab === 'reviews' && (
+              <motion.div 
+                key="revs"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.3 }}
+                className="space-y-12"
+              >
+                {/* Write Review */}
+                <div className="bg-secondary rounded-3xl p-8 md:p-12 mb-16 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-accent/5 rounded-full blur-3xl"></div>
+                  <h3 className="text-2xl font-bold text-primary mb-6 relative z-10">Share Your Experience</h3>
+                  {!user ? (
+                    <p className="text-muted relative z-10">
+                      Please <Link to="/login" className="text-accent font-bold hover:underline">sign in</Link> to post a review.
+                    </p>
+                  ) : (
+                    <form onSubmit={handleSubmitReview} className="relative z-10 max-w-2xl">
+                      <div className="mb-6">
+                        <label className="block text-sm font-bold tracking-widest uppercase text-primary mb-3">Rating</label>
+                        <div className="flex gap-2">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                              type="button"
+                              key={star}
+                              onClick={() => setReviewRating(star)}
+                              className="focus:outline-none transition-transform hover:scale-110"
+                            >
+                              <Star className={cn("w-8 h-8", star <= reviewRating ? "text-accent fill-accent" : "text-border")} />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="mb-6">
+                        <label className="block text-sm font-bold tracking-widest uppercase text-primary mb-3">Your Review</label>
+                        <textarea
+                          value={reviewComment}
+                          onChange={(e) => setReviewComment(e.target.value)}
+                          required
+                          rows={4}
+                          className="w-full px-6 py-4 rounded-2xl border border-border bg-white text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all shadow-sm resize-none placeholder:text-muted/50"
+                          placeholder="How did this piece make you feel?"
+                        />
+                      </div>
+
+                      <ErrorAlert message={postReviewError} className="mb-6" />
+                      {postReviewSuccess && (
+                        <div className="bg-green-50 text-green-700 p-4 rounded-xl text-sm font-medium mb-6">
+                          {postReviewSuccess}
+                        </div>
+                      )}
+
+                      <Button type="submit" variant="primary" isLoading={postingReview} className="px-10">
+                        Submit Review
+                      </Button>
+                    </form>
+                  )}
+                </div>
+
+                {/* Review List */}
+                <div>
+                  <h3 className="text-2xl font-bold text-primary mb-10 text-center">Customer Testimonials</h3>
+                  
+                  {reviewsLoading ? (
+                    <LoadingSpinner />
+                  ) : reviewsError ? (
+                    <ErrorAlert message={reviewsError} />
+                  ) : reviews.length === 0 ? (
+                    <p className="text-center text-muted italic">Be the first to share your thoughts.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      {reviews.map((r, idx) => {
+                        let avatarUrl = null;
+                        if (r.user_profile_image) {
+                          if (r.user_profile_image.startsWith('http')) {
+                            avatarUrl = r.user_profile_image;
+                          } else {
+                            const API_URL = import.meta.env?.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api';
+                            const BASE_URL = API_URL.replace('/api', '').replace(/\/$/, '');
+                            avatarUrl = `${BASE_URL}${r.user_profile_image.startsWith('/') ? r.user_profile_image : '/' + r.user_profile_image}`;
+                          }
+                        }
+                        
+                        return (
+                          <motion.div 
+                            initial={{ opacity: 0, y: 20 }}
+                            whileInView={{ opacity: 1, y: 0 }}
+                            viewport={{ once: true }}
+                            transition={{ delay: idx * 0.1 }}
+                            key={r.id} 
+                            className="bg-white rounded-3xl p-8 border border-border shadow-[0_2px_10px_-3px_rgba(0,0,0,0.02)]"
+                          >
+                            <div className="flex justify-between items-start mb-6">
+                              <div className="flex items-center gap-4">
+                                {avatarUrl ? (
+                                  <img 
+                                    src={avatarUrl} 
+                                    alt={r.user_display} 
+                                    className="w-12 h-12 rounded-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center text-primary font-bold text-lg">
+                                    {(r.user_display && r.user_display !== 'Anonymous') ? r.user_display.charAt(0).toUpperCase() : 'A'}
+                                  </div>
+                                )}
+                                <div>
+                                  <div className="font-bold text-primary">{r.user_display || 'Verified Buyer'}</div>
+                                  <div className="text-xs text-muted">Variant: {r.variant_sku}</div>
+                                </div>
+                              </div>
+                              <div className="flex gap-0.5">
+                                {[1,2,3,4,5].map(star => (
+                                  <Star key={star} className={cn("w-4 h-4", star <= r.rating ? "text-accent fill-accent" : "text-border")} />
+                                ))}
+                              </div>
+                            </div>
+                            <p className="text-muted leading-relaxed font-light">{r.comment}</p>
+                          </motion.div>
+                        );
+                      })}
                     </div>
                   )}
-
-                  <Button 
-                    type="submit" 
-                    variant="primary" 
-                    style={{ width: '100%' }}
-                    isLoading={postingReview}
-                  >
-                    Submit Review
-                  </Button>
-                </form>
-              )}
-            </Card>
-          </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
     </div>
