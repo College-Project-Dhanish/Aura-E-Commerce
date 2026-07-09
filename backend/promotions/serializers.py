@@ -15,3 +15,8 @@ class ValidateCouponSerializer(serializers.Serializer):
         if not coupon.is_valid():
             raise serializers.ValidationError("Coupon is not valid.")
         return coupon
+
+class CouponSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Coupon
+        fields = '__all__'

@@ -100,3 +100,30 @@ class RecentOrdersView(APIView):
             for o in orders
         ]
         return Response({"items": data, "count": len(data)})
+
+import json
+
+class StoreSettingsView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsAdminStaff]
+
+    def get_settings_file(self):
+        return settings.BASE_DIR / 'store_settings.json'
+
+    def get(self, request):
+        file_path = self.get_settings_file()
+        if not file_path.exists():
+            default_settings = {
+                "store_name": "TSHIRTS Store",
+                "store_email": "hello@tshirts.com",
+                "phone": "+1 234 567 890",
+                "address": "123 Street",
+            }
+            return Response(default_settings)
+        with open(file_path, 'r') as f:
+            return Response(json.load(f))
+
+    def put(self, request):
+        file_path = self.get_settings_file()
+        with open(file_path, 'w') as f:
+            json.dump(request.data, f)
+        return Response(request.data)

@@ -26,7 +26,7 @@ class CollectionSerializer(serializers.ModelSerializer):
 class ColorSerializer(serializers.ModelSerializer):
     class Meta:
         model = Color
-        fields = ["id", "name", "slug"]
+        fields = ["id", "name", "slug", "image"]
 
 
 class SizeSerializer(serializers.ModelSerializer):
@@ -38,7 +38,7 @@ class SizeSerializer(serializers.ModelSerializer):
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImage
-        fields = ["id", "image", "sort_order"]
+        fields = ["id", "image", "sort_order", "product"]
 
 
 class ProductVariantSerializer(serializers.ModelSerializer):
@@ -121,7 +121,7 @@ class CollectionWriteSerializer(serializers.ModelSerializer):
 class ColorWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Color
-        fields = ["id", "name", "slug"]
+        fields = ["id", "name", "slug", "image"]
 
 
 class SizeWriteSerializer(serializers.ModelSerializer):

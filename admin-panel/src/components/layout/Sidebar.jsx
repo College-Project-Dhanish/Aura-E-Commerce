@@ -28,6 +28,8 @@ const Sidebar = ({ isOpen, setOpen }) => {
           <SidebarItem to="/admin/catalog/categories" label="Categories" />
           <SidebarItem to="/admin/catalog/collections" label="Collections" />
           <SidebarItem to="/admin/catalog/products" label="Products" />
+          <SidebarItem to="/admin/catalog/colors" label="Colors" />
+          <SidebarItem to="/admin/catalog/sizes" label="Sizes" />
           <SidebarItem to="/admin/catalog/variants" label="Variants" />
           <SidebarItem to="/admin/catalog/images" label="Product Images" />
         </SidebarGroup>

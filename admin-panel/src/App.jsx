@@ -8,16 +8,16 @@ import Dashboard from './pages/Dashboard';
 import Categories from './pages/Categories';
 import Collections from './pages/Collections';
 import Products from './pages/Products';
-
-// Placeholder for other pages until implemented
-const PlaceholderPage = ({ title }) => (
-  <div>
-    <h1 className="text-2xl font-bold tracking-tight text-neutral-900 mb-6">{title}</h1>
-    <div className="border border-neutral-200 bg-neutral-50 p-8 text-center text-neutral-500">
-      {title} Module Under Construction
-    </div>
-  </div>
-);
+import Colors from './pages/Colors';
+import Sizes from './pages/Sizes';
+import Variants from './pages/Variants';
+import ProductImages from './pages/ProductImages';
+import Orders from './pages/Orders';
+import Customers from './pages/Customers';
+import Coupons from './pages/Coupons';
+import Reviews from './pages/Reviews';
+import Subscribers from './pages/Subscribers';
+import StoreSettings from './pages/StoreSettings';
 
 function App() {
   return (
@@ -40,18 +40,20 @@ function App() {
             <Route path="catalog/categories" element={<Categories />} />
             <Route path="catalog/collections" element={<Collections />} />
             <Route path="catalog/products" element={<Products />} />
-            <Route path="catalog/variants" element={<PlaceholderPage title="Variants" />} />
-            <Route path="catalog/images" element={<PlaceholderPage title="Product Images" />} />
+            <Route path="catalog/colors" element={<Colors />} />
+            <Route path="catalog/sizes" element={<Sizes />} />
+            <Route path="catalog/variants" element={<Variants />} />
+            <Route path="catalog/images" element={<ProductImages />} />
             
-            <Route path="orders" element={<PlaceholderPage title="Orders" />} />
-            <Route path="customers" element={<PlaceholderPage title="Customers" />} />
-            <Route path="promotions/coupons" element={<PlaceholderPage title="Coupons" />} />
+            <Route path="orders" element={<Orders />} />
+            <Route path="customers" element={<Customers />} />
+            <Route path="promotions/coupons" element={<Coupons />} />
             
-            <Route path="reviews/pending" element={<PlaceholderPage title="Pending Reviews" />} />
-            <Route path="reviews/approved" element={<PlaceholderPage title="Approved Reviews" />} />
+            <Route path="reviews/pending" element={<Reviews />} />
+            <Route path="reviews/approved" element={<Reviews />} />
             
-            <Route path="newsletter/subscribers" element={<PlaceholderPage title="Subscribers" />} />
-            <Route path="settings/store" element={<PlaceholderPage title="Store Settings" />} />
+            <Route path="newsletter/subscribers" element={<Subscribers />} />
+            <Route path="settings/store" element={<StoreSettings />} />
           </Route>
 
           <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />

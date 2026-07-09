@@ -97,6 +97,7 @@ class ProductImage(models.Model):
 class Color(models.Model):
     name = models.CharField(max_length=100)
     slug = models.SlugField(max_length=120, unique=True)
+    image = models.ImageField(upload_to='colors/images/', null=True, blank=True)
 
     class Meta:
         indexes = [

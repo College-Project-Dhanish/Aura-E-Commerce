@@ -174,30 +174,30 @@ class _AdminCrudBase(APIView):
     def get(self, request, obj_id: int | None = None):
         if obj_id is None:
             qs = self.get_queryset().order_by("id")
-            serializer = self.get_list_serializer()(qs, many=True)
+            serializer = self.get_list_serializer()(qs, many=True, context={"request": request})
             return Response(serializer.data)
 
         obj = self.get_object(obj_id)
         if not obj:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
-        serializer = self.get_list_serializer()(obj)
+        serializer = self.get_list_serializer()(obj, context={"request": request})
         return Response(serializer.data)
 
     def post(self, request):
-        serializer = self.get_write_serializer()(data=request.data)
+        serializer = self.get_write_serializer()(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         obj = serializer.save()
-        return Response(self.get_list_serializer()(obj).data, status=status.HTTP_201_CREATED)
+        return Response(self.get_list_serializer()(obj, context={"request": request}).data, status=status.HTTP_201_CREATED)
 
     def put(self, request, obj_id: int):
         obj = self.get_object(obj_id)
         if not obj:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = self.get_write_serializer()(obj, data=request.data)
+        serializer = self.get_write_serializer()(obj, data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         obj = serializer.save()
-        return Response(self.get_list_serializer()(obj).data, status=status.HTTP_200_OK)
+        return Response(self.get_list_serializer()(obj, context={"request": request}).data, status=status.HTTP_200_OK)
 
     def patch(self, request, obj_id: int):
         return self.put(request, obj_id=obj_id)

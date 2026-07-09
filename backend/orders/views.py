@@ -248,3 +248,32 @@ class OrderDetailView(APIView):
         if not order:
             return Response({"detail": "Order not found."}, status=status.HTTP_404_NOT_FOUND)
         return Response(OrderSerializer(order).data)
+
+class OrderAdminListView(APIView):
+    permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]
+
+    def get(self, request):
+        orders = Order.objects.all()
+        serializer = OrderListSerializer(orders, many=True)
+        return Response({"results": serializer.data})
+
+class OrderAdminDetailView(APIView):
+    permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]
+
+    def get(self, request, order_number: str):
+        order = Order.objects.filter(order_number=order_number).first()
+        if not order:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(OrderSerializer(order).data)
+
+    def put(self, request, order_number: str):
+        order = Order.objects.filter(order_number=order_number).first()
+        if not order:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        new_status = request.data.get("status")
+        if new_status in [s[0] for s in Order.Status.choices]:
+            order.status = new_status
+            order.save()
+            return Response(OrderSerializer(order).data)
+        return Response({"detail": "Invalid status."}, status=status.HTTP_400_BAD_REQUEST)

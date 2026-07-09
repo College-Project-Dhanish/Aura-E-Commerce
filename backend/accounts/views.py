@@ -140,3 +140,12 @@ class ResetPasswordView(APIView):
         user.save()
         return Response({'detail': 'Password reset successful.'}, status=status.HTTP_200_OK)
 
+class CustomerAdminListView(APIView):
+    permission_classes = [permissions.IsAuthenticated, permissions.IsAdminUser]
+
+    def get(self, request):
+        users = User.objects.filter(is_staff=False, is_superuser=False)
+        # Using ProfileSerializer since it returns id, email, first_name, last_name, etc.
+        serializer = ProfileSerializer(users, many=True)
+        return Response({"results": serializer.data})
+
