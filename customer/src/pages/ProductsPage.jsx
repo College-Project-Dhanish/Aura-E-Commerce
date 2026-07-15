@@ -390,13 +390,14 @@ export default function ProductsPage() {
                       return (
                         <motion.div
                           layout
-                          initial={{ opacity: 0, y: 20 }}
-                          animate={{ opacity: 1, y: 0 }}
+                          initial={{ opacity: 0, y: 40 }}
+                          whileInView={{ opacity: 1, y: 0 }}
+                          viewport={{ once: true, margin: "-50px" }}
                           exit={{ opacity: 0, scale: 0.9 }}
-                          transition={{ duration: 0.4, delay: idx * 0.05 }}
+                          transition={{ duration: 0.6, delay: (idx % 3) * 0.1, ease: "easeOut" }}
                           key={p.id || slug}
                         >
-                          <Link to={`/products/${slug}`} className="group block">
+                          <Link to={`/products/${slug}`} className="group block hover:-translate-y-2 hover:drop-shadow-2xl transition-all duration-500">
                             <div className="relative aspect-[3/4] bg-secondary rounded-2xl overflow-hidden mb-5">
                               {/* Badges */}
                               <div className="absolute top-4 left-4 z-10 flex flex-col gap-2">
