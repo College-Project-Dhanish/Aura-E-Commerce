@@ -5,6 +5,7 @@ import { ArrowRight, ArrowUpRight } from 'lucide-react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { useGSAP } from '@gsap/react';
+import { Scene } from '../components/canvas/Scene';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -48,9 +49,11 @@ const FEATURED_PRODUCTS = [
 ];
 
 export default function HomePage() {
+  const rootRef = useRef(null);
   const masterRef = useRef(null);
   const cursorRef = useRef(null);
   const cursorLightRef = useRef(null);
+  const progressRef = useRef(0);
 
   useGSAP(() => {
     const tl = gsap.timeline({
@@ -60,19 +63,14 @@ export default function HomePage() {
         end: "+=1200%", // Very long scroll for the full experience
         scrub: 1,
         pin: true,
+        onUpdate: (self) => {
+          progressRef.current = self.progress;
+        }
       }
     });
 
     // SCENE 1: HERO DIVE
-    // 0 - 1.5: Dive through the shirts
-    tl.to('.floating-shirt', {
-      scale: (i, target) => parseFloat(target.dataset.scale) * 15,
-      opacity: 0,
-      stagger: 0.02,
-      duration: 2,
-      ease: "power2.in"
-    }, 0);
-    
+    // Note: The shirts are now driven via Three.js
     tl.to('.hero-word span', {
       y: "-120%",
       opacity: 0,
@@ -156,22 +154,6 @@ export default function HomePage() {
       ease: "power2.out"
     }, 11.5);
 
-
-    // Ambient infinite animations (independent of scroll)
-    gsap.to('.floating-shirt', {
-      y: "+=30",
-      x: "+=15",
-      rotation: "+=5",
-      yoyo: true,
-      repeat: -1,
-      duration: 4,
-      ease: "sine.inOut",
-      stagger: {
-        each: 0.1,
-        from: "random"
-      }
-    });
-
   }, { scope: masterRef });
 
   // Custom Cursor logic
@@ -195,36 +177,25 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div className="bg-black text-white cursor-none">
-      <div ref={masterRef} className="master-container w-full h-screen relative overflow-hidden hidden-scrollbar">
+    <div ref={rootRef} className="bg-transparent text-white cursor-none min-h-screen relative">
+      
+      {/* Three.js Cinematic Background Layer */}
+      <Scene 
+        cameraTimelineProgress={progressRef} 
+        floatingShirtsData={FLOATING_SHIRTS} 
+        eventSourceRef={rootRef}
+      />
+
+      <div ref={masterRef} className="master-container w-full h-screen relative overflow-hidden hidden-scrollbar z-10 pointer-events-none">
         
         {/* Custom Cursors */}
         <div ref={cursorRef} className="fixed top-0 left-0 w-4 h-4 bg-white rounded-full pointer-events-none z-[100] mix-blend-difference -translate-x-1/2 -translate-y-1/2 hidden md:block"></div>
-        <div ref={cursorLightRef} className="fixed top-0 left-0 w-[40vw] h-[40vw] bg-accent/10 rounded-full blur-[100px] pointer-events-none z-0 -translate-x-1/2 -translate-y-1/2 hidden md:block"></div>
+        <div ref={cursorLightRef} className="fixed top-0 left-0 w-[40vw] h-[40vw] bg-accent/10 rounded-full blur-[100px] pointer-events-none z-[1] -translate-x-1/2 -translate-y-1/2 hidden md:block"></div>
 
-        {/* Ambient Noise Background */}
-        <div className="absolute inset-0 z-0 opacity-20 pointer-events-none mix-blend-overlay mesh-bg"></div>
+        {/* Ambient Noise Background is handled in Three.js now */}
 
         {/* --- SCENE 1: HERO DIVE --- */}
         <div className="scene-hero absolute inset-0 w-full h-full z-10 flex items-center justify-center">
-          <div className="absolute inset-0 perspective-1000">
-            {FLOATING_SHIRTS.map((shirt) => (
-              <div 
-                key={shirt.id} 
-                className="floating-shirt absolute will-change-transform shadow-2xl rounded-2xl overflow-hidden"
-                data-scale={shirt.scale}
-                style={{
-                  top: shirt.top, 
-                  left: shirt.left,
-                  transform: `scale(${shirt.scale}) rotate(${shirt.rotate}deg)`,
-                  zIndex: Math.floor(shirt.depth * 10),
-                  filter: `blur(${Math.max(0, (0.5 - shirt.depth) * 8)}px)`
-                }}
-              >
-                <img src={shirt.src} alt="" className="w-48 md:w-64 h-auto object-cover opacity-80" />
-              </div>
-            ))}
-          </div>
           <div className="hero-text-content absolute z-30 flex flex-col items-center pointer-events-none text-center">
             <h1 className="text-[15vw] md:text-[12vw] font-bold tracking-tighter leading-[0.85] mix-blend-difference text-white">
               <div className="hero-word overflow-hidden"><span className="block">DEFINE</span></div>
